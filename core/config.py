@@ -687,7 +687,14 @@ DEFAULT_WORKSPACE_NAME = "默认空间"
 
 
 def _default_working_dir() -> str:
-    """默认工作目录（项目根目录下的 .working_dir）。"""
+    """返回默认工作目录。
+
+    Vercel 的部署文件系统是只读的（只有 /tmp 可写），因此 serverless
+    runtime 必须把临时任务/上传产物放到 /tmp。生产持久化应由外部存储承担。
+    本地/Docker 行为保持原样。
+    """
+    if os.getenv("VERCEL"):
+        return "/tmp/agnes-working"
     return os.path.join(_PROJECT_ROOT, ".working_dir")
 
 
