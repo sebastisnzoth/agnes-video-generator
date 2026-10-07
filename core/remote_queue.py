@@ -6,7 +6,7 @@ from typing import Any
 import requests
 
 def enabled() -> bool:
-    return os.getenv("AGNES_TASK_BACKEND","").lower()=="supabase" or bool(os.getenv("VERCEL"))
+    return os.getenv("AGNES_TASK_BACKEND","").lower()=="supabase" or os.getenv("VERCEL")=="1"
 
 def _supabase():
     url=os.getenv("SUPABASE_URL","").rstrip("/")
@@ -37,7 +37,7 @@ def create_task(task_id,task_type,input_data,dir_name,user_id=""):
         r=requests.post(f"{url}/rest/v1/tasks",headers={**_headers(key),"Prefer":"return=representation"},
                         json=payload,timeout=20); r.raise_for_status(); return r.json()[0]
     with sqlite3.connect(_db()) as c:
-        c.execute("INSERT INTO tasks VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        c.execute("INSERT INTO tasks VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                   (task_id,user_id,task_type,"queued",0,json.dumps(input_data,ensure_ascii=False),
                    dir_name,"","",now,None,None,now)); c.commit()
     return payload
