@@ -12,7 +12,14 @@ from models.task import AudioConfig, SubtitleConfig, SubtitleStyle
 
 logger = logging.getLogger(__name__)
 
-CONFIG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".agnes_config")
+# Vercel deployments have a read-only project filesystem; only /tmp is writable.
+# Keep local/Docker behavior unchanged while routing runtime config to /tmp in
+# serverless environments. Production secrets should come from environment vars.
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if os.getenv("VERCEL"):
+    CONFIG_DIR = "/tmp/agnes-config"
+else:
+    CONFIG_DIR = os.path.join(_PROJECT_ROOT, ".agnes_config")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 # ═══════════════════════════════════════════════════
@@ -49,9 +56,6 @@ def api_key_missing_msg(lang: str | None = None) -> str:
 def api_key_missing_detail(lang: str | None = None) -> str:
     """``api_key_missing_msg`` 的别名，语义上更贴近 ``HTTPException(detail=...)``。"""
     return api_key_missing_msg(lang)
-
-# 项目根目录
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def font_dir() -> str:
