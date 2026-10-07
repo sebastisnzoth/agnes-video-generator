@@ -30,3 +30,21 @@ services:
       # 配置（API Key、工作空间列表等设置）
       - ./agnes_data/config:/app/.agnes_config
     restart: unless-stopped
+
+  # Optional persistent worker for the Vercel/Supabase architecture.
+  # Start with: docker compose --profile worker up --build worker
+  worker:
+    build: .
+    profiles: ["worker"]
+    environment:
+      - AGNES_API_KEY=${AGNES_API_KEY:-}
+      - AGNES_TASK_BACKEND=${AGNES_TASK_BACKEND:-supabase}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - SUPABASE_STORAGE_BUCKET=${SUPABASE_STORAGE_BUCKET:-agnes-videos}
+      - AGNES_WORKER_POLL_SECONDS=${AGNES_WORKER_POLL_SECONDS:-2}
+    volumes:
+      - ./agnes_data/working:/app/.working_dir
+      - ./agnes_data/config:/app/.agnes_config
+    command: ["python", "-m", "worker"]
+    restart: unless-stopped
