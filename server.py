@@ -135,7 +135,10 @@ app = FastAPI(
         "API 文档：https://video.lichuanyang.top/api-docs ｜ "
         "调用指南：https://video.lichuanyang.top/api-docs"
     ),
-    lifespan=lifespan,
+    # Vercel's ASGI adapter manages the application lifecycle; using the custom
+    # lifespan hook here causes recursive Starlette lifespan contexts in the
+    # serverless runtime. Keep the full lifespan for local/Docker execution.
+    lifespan=None if os.getenv("VERCEL") else lifespan,
 )
 
 
