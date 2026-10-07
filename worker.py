@@ -25,11 +25,28 @@ async def run_one(row):
     key=get_api_key()
     if not key: raise RuntimeError("AGNES_API_KEY is not configured on worker")
     pipeline=deps.create_pipeline_for_type(state.task_type,key,task_id,row["dir_name"])
-    await deps.run_pipeline_with_concurrency(pipeline,state,tm)
+    done=asyncio.Event()
+    async def sync_progress():
+        while not done.is_set():
+            try:
+                current=tm.load()
+                if current:
+                    update_task(task_id,progress=float(getattr(current,"current_progress",0) or 0))
+            except Exception:
+                pass
+            await asyncio.sleep(2)
+    watcher=asyncio.create_task(sync_progress())
+    try:
+        await deps.run_pipeline_with_concurrency(pipeline,state,tm)
+    finally:
+        done.set()
+        watcher.cancel()
+        try: await watcher
+        except asyncio.CancelledError: pass
     final=tm.load() or state; output=_find_output(final.model_dump(mode="python"))
     if not output: raise RuntimeError("Pipeline completed without a local video artifact")
     ref=upload_file(output,f"tasks/{task_id}/result/{os.path.basename(output)}")
-    update_task(task_id,status="completed",progress=1,result_url=signed_url(ref),error="")
+    update_task(task_id,status="completed",progress=1,result_url=signed_url(ref),error="",completed_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat())
     log.info("completed %s",task_id)
 
 async def main():
