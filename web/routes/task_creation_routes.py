@@ -25,6 +25,7 @@ from core.pipelines import ALL_CHECKPOINTS
 from core.pipelines.poetry_video import POETRY_SUBTITLE_STYLE
 from core.screenwriter import build_poetry_scene_prompt
 from core.task_manager import TaskManager
+from core import remote_queue
 from models.task import (
     AnchorVideoTask,
     AudioConfig,
@@ -240,6 +241,12 @@ async def create_simple_task(
     if end_frame_image and end_frame_image.filename:
         state.end_frame_image = await _save_upload_file(end_frame_image, upload_dir, f"{task_id}_end")
 
+    # Vercel/serverless: persist the task and let the external worker run the heavy pipeline.
+    if remote_queue.enabled():
+        await remote_queue.enqueue_state(state, dir_name)
+        logger.info("[SIMPLE] Task queued in persistent worker backend: %s", safe_log(task_id))
+        return {"ok": True, "task_id": task_id, "dir_name": dir_name, "status": "queued"}
+
     pipeline = deps.create_pipeline_for_type(TaskType.SIMPLE, api_key, task_id, dir_name)
     app_state.active_pipelines[task_id] = pipeline
 
@@ -391,6 +398,12 @@ async def create_creative_task(
             state.scene_reference_images = saved_scene_refs
             logger.info(f"[Pipeline] Saved {len(saved_scene_refs)} user scene reference images for task {task_id}")
 
+    # Vercel/serverless: persist the task and let the external worker run the heavy pipeline.
+    if remote_queue.enabled():
+        await remote_queue.enqueue_state(state, dir_name)
+        logger.info("[CREATIVE] Task queued in persistent worker backend: %s", safe_log(task_id))
+        return {"ok": True, "task_id": task_id, "dir_name": dir_name, "status": "queued"}
+
     pipeline = deps.create_pipeline_for_type(TaskType.CREATIVE, api_key, task_id, dir_name)
     app_state.active_pipelines[task_id] = pipeline
 
@@ -523,6 +536,12 @@ async def create_manuscript_task(
         ui_language=get_current_lang(),
     )
 
+    # Vercel/serverless: persist the task and let the external worker run the heavy pipeline.
+    if remote_queue.enabled():
+        await remote_queue.enqueue_state(state, dir_name)
+        logger.info("[MANUSCRIPT] Task queued in persistent worker backend: %s", safe_log(task_id))
+        return {"ok": True, "task_id": task_id, "dir_name": dir_name, "status": "queued"}
+
     pipeline = deps.create_pipeline_for_type(TaskType.MANUSCRIPT, api_key, task_id, dir_name)
     app_state.active_pipelines[task_id] = pipeline
 
@@ -645,6 +664,12 @@ async def create_poetry_task(
         ui_language=get_current_lang(),
     )
 
+    # Vercel/serverless: persist the task and let the external worker run the heavy pipeline.
+    if remote_queue.enabled():
+        await remote_queue.enqueue_state(state, dir_name)
+        logger.info("[POETRY] Task queued in persistent worker backend: %s", safe_log(task_id))
+        return {"ok": True, "task_id": task_id, "dir_name": dir_name, "status": "queued"}
+
     pipeline = deps.create_pipeline_for_type(TaskType.POETRY, api_key, task_id, dir_name)
     app_state.active_pipelines[task_id] = pipeline
 
@@ -735,6 +760,12 @@ async def create_anchor_task(
         # v7.0（issue #64）：任务级 UI 语言快照
         ui_language=get_current_lang(),
     )
+
+    # Vercel/serverless: persist the task and let the external worker run the heavy pipeline.
+    if remote_queue.enabled():
+        await remote_queue.enqueue_state(state, dir_name)
+        logger.info("[ANCHOR] Task queued in persistent worker backend: %s", safe_log(task_id))
+        return {"ok": True, "task_id": task_id, "dir_name": dir_name, "status": "queued"}
 
     pipeline = deps.create_pipeline_for_type(TaskType.ANCHOR, api_key, task_id, dir_name)
     app_state.active_pipelines[task_id] = pipeline
