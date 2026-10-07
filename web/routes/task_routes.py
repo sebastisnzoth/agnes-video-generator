@@ -12,6 +12,7 @@ from core.config import api_key_missing_msg, get_api_key
 from core.i18n_backend import translate
 from core.pipelines import ALL_CHECKPOINTS, compute_current_checkpoint
 from core.task_manager import TaskManager
+from core import remote_queue
 from models.task import (
     AnchorVideoTask,
     CreativeVideoTask,
@@ -39,6 +40,23 @@ async def list_tasks(limit: int = 0, offset: int = 0, status: str = ""):
         offset: 跳过前 N 条
         status: 逗号分隔的状态过滤（如 ``running,queued,pending``）；空为不过滤
     """
+    if remote_queue.enabled():
+        rows, total = remote_queue.list_tasks(limit=limit, offset=offset, status=status)
+        tasks=[]
+        for row in rows:
+            state=row.get("input") or {}
+            tasks.append({
+                "task_id": row["id"], "dir_name": row.get("dir_name",""),
+                "task_type": row.get("type",""), "status": row.get("status","queued"),
+                "progress": row.get("progress",0), "final_video_file": row.get("result_url",""),
+                "result_url": row.get("result_url",""), "error": row.get("error",""),
+                "creative_name": state.get("creative_name",""),
+                "current_step": state.get("current_step",""),
+                "current_message": state.get("current_message",""),
+                "active": row.get("status") == "processing",
+            })
+        return {"tasks": tasks, "total": total}
+
     tm = TaskManager("_")
     tasks = tm.list_tasks()
     # 1.4：状态过滤 + 分页在轻量字段阶段完成，避免为被过滤/截断的任务
@@ -98,6 +116,21 @@ async def list_tasks(limit: int = 0, offset: int = 0, status: str = ""):
 
 @router.get("/api/tasks/{task_id}")
 async def get_task(task_id: str):
+    if remote_queue.enabled():
+        row=remote_queue.get_task(task_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Task not found")
+        data=dict(row.get("input") or {})
+        data.update({
+            "task_id": row["id"], "dir_name": row.get("dir_name",""),
+            "status": row.get("status",data.get("status","queued")),
+            "current_progress": row.get("progress",0),
+            "result_url": row.get("result_url",""),
+            "error": row.get("error",""),
+            "active": row.get("status") == "processing",
+        })
+        return data
+
     dir_name = helpers.find_dir_name(task_id)
     tm = TaskManager(task_id, dir_name=dir_name)
     state = tm.load()
