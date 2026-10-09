@@ -8,6 +8,8 @@ import os
 import pytest
 import asyncio
 import logging
+import subprocess
+from unittest.mock import patch
 
 # 全文件为慢速回归：真实运行多场景媒体合成（ffmpeg），默认被 -m "not slow" 排除，
 # CI 通过 overridden addopts 仍全量执行。
@@ -22,6 +24,7 @@ from models.task import (
     ManuscriptVideoTask,
     AnchorVideoTask,
     PoetryVideoTask,
+    MusicVideoTask,
     VideoMode,
 )
 
@@ -525,6 +528,68 @@ class TestPoetryVideoPipeline(BasePipelineTest):
         assert len(st.scenes) == 3, st.scenes
         # video_duration=30 均分 3 段 → 每段 10s
         assert all(s.duration == 10 for s in st.scenes), [s.duration for s in st.scenes]
+
+
+class TestMusicVideoPipeline(BasePipelineTest):
+    """音乐视频（v7.1）：歌曲按 10 秒分段 → 替身视频片段 → 原曲作为唯一音轨合成（无 TTS）。"""
+
+    _SONG_SECONDS = 25.0  # 3 段：10 / 10 / 5 秒
+
+    def _make_song(self, workdir):
+        from core.compositor.ffmpeg_tool import resolve_binary
+
+        path = os.path.join(workdir, "upload_song.wav")
+        subprocess.run(
+            [resolve_binary("ffmpeg"), "-y", "-hide_banner", "-loglevel", "error",
+             "-f", "lavfi", "-i", f"sine=frequency=330:duration={self._SONG_SECONDS}",
+             "-c:a", "pcm_s16le", path],
+            stdin=subprocess.DEVNULL, capture_output=True, check=True, timeout=120,
+        )
+        return path
+
+    def _make_state(self, song_path):
+        return MusicVideoTask(
+            task_type="music_video",
+            creative_name="mock_music",
+            song_name="song.wav",
+            song_file=song_path,
+            video_width=768,
+            video_height=1152,
+            lyrics_enabled=True,
+            subtitle_config=SubtitleConfig(enabled=True),
+        )
+
+    @pytest.mark.asyncio
+    async def test_music_video_with_lyrics(self, temp_workdir):
+        """歌词识别成功 → lyrics.json 与字幕；成片时长与歌曲一致。"""
+        from core.audio.lyrics import LyricLine
+        from core.compositor.ffmpeg_tool import probe_duration
+        from core.pipelines.music_video import MusicVideoPipeline
+
+        lines = [LyricLine(1.0, 4.0, "mock lyric one"), LyricLine(12.0, 15.0, "mock lyric two")]
+        state = self._make_state(self._make_song(temp_workdir))
+        with patch("core.pipelines.music_video.transcribe_lyrics", return_value=lines):
+            final = await self._run_and_verify(MusicVideoPipeline, state, temp_workdir,
+                                                verify_prompts=True)
+
+        assert probe_duration(final) == pytest.approx(self._SONG_SECONDS, abs=0.2)
+        assert os.path.getsize(os.path.join(temp_workdir, "lyrics.json")) > 0
+        assert os.path.getsize(os.path.join(temp_workdir, "full_subtitle.srt")) > 0
+        assert state.combined_audio == os.path.join(temp_workdir, "song.mp3")
+
+    @pytest.mark.asyncio
+    async def test_music_video_lyrics_unavailable_completes_without_subtitles(self, temp_workdir):
+        """歌词识别不可用 → 任务照常完成，只是没有字幕。"""
+        from core.audio.lyrics import LyricsUnavailableError
+        from core.pipelines.music_video import MusicVideoPipeline
+
+        state = self._make_state(self._make_song(temp_workdir))
+        with patch("core.pipelines.music_video.transcribe_lyrics",
+                   side_effect=LyricsUnavailableError("mock: model not installed")):
+            await self._run_and_verify(MusicVideoPipeline, state, temp_workdir)
+
+        assert state.lyric_lines == []
+        assert not os.path.exists(os.path.join(temp_workdir, "full_subtitle.srt"))
 
 
 class TestPoetryScenePrompt(BasePipelineTest):

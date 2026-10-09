@@ -704,6 +704,54 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "zh": "合成场景 {i}/{total}...",
         "en": "Compositing scene {i}/{total}...",
     },
+    "progress.music_video.init": {
+        "zh": "初始化音乐视频任务...",
+        "en": "Initializing the music video task...",
+    },
+    "progress.music_video.song_ready": {
+        "zh": "歌曲已就绪（{seconds} 秒）",
+        "en": "Song ready ({seconds} s)",
+    },
+    "progress.music_video.song_missing": {
+        "zh": "找不到歌曲源文件，请重新上传",
+        "en": "The song source file was not found. Please upload it again.",
+    },
+    "progress.music_video.song_unreadable": {
+        "zh": "无法读取歌曲时长，文件可能已损坏",
+        "en": "Cannot read the song duration. The file may be corrupted.",
+    },
+    "progress.music_video.lyrics_running": {
+        "zh": "识别歌词中（首次使用需下载识别模型）...",
+        "en": "Recognizing lyrics (the first run downloads the recognition model)...",
+    },
+    "progress.music_video.lyrics_done": {
+        "zh": "已识别 {n} 行歌词",
+        "en": "Recognized {n} lyric lines",
+    },
+    "progress.music_video.lyrics_empty": {
+        "zh": "未识别到歌词（纯伴奏），本次不生成字幕",
+        "en": "No lyrics recognized (instrumental). No subtitles will be generated.",
+    },
+    "progress.music_video.lyrics_skipped": {
+        "zh": "歌词识别不可用，已跳过字幕（不影响视频生成）",
+        "en": "Lyric recognition is unavailable; subtitles were skipped (the video will still be generated)",
+    },
+    "progress.music_video.prompts_running": {
+        "zh": "依据歌词拟定各段画面...",
+        "en": "Writing the visuals for each segment from the lyrics...",
+    },
+    "progress.music_video.prompts_fallback": {
+        "zh": "部分分镜文案未能生成，已用模板补齐",
+        "en": "Some scene descriptions could not be generated; templates were used instead",
+    },
+    "progress.music_video.clip_missing": {
+        "zh": "第 {i} 段视频缺失，无法合成",
+        "en": "Clip {i} is missing; cannot composite the video",
+    },
+    "progress.music_video.composite_running": {
+        "zh": "按歌曲时长对齐各段画面并合成成片...",
+        "en": "Aligning the clips to the song length and compositing the final video...",
+    },
     "progress.anchor.image_running": {
         "zh": "生成主播形象图...",
         "en": "Generating anchor image...",
@@ -833,6 +881,30 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "validation.video_duration_range": {
         "zh": "video_duration 范围 {min}-{max} 秒",
         "en": "video_duration must be between {min} and {max} seconds",
+    },
+    "validation.song_missing": {
+        "zh": "请上传歌曲文件",
+        "en": "Please upload a song file",
+    },
+    "validation.song_format_unsupported": {
+        "zh": "不支持的音频格式，仅支持：{exts}",
+        "en": "Unsupported audio format. Supported formats: {exts}",
+    },
+    "validation.song_too_large": {
+        "zh": "歌曲文件超过 {max_mb} MB 上限",
+        "en": "The song file exceeds the {max_mb} MB limit",
+    },
+    "validation.song_unreadable": {
+        "zh": "无法读取歌曲文件（文件为空或已损坏）",
+        "en": "Cannot read the song file (it is empty or corrupted)",
+    },
+    "validation.song_duration_range": {
+        "zh": "歌曲时长需在 {min}–{max} 秒之间",
+        "en": "The song duration must be between {min} and {max} seconds",
+    },
+    "validation.music_video_size_invalid": {
+        "zh": "分辨率仅支持 1280×720（横屏）或 768×1152（竖屏）",
+        "en": "Resolution must be 1280x720 (landscape) or 768x1152 (portrait)",
     },
     "validation.user_scene_prompts_not_list": {
         "zh": "user_scene_prompts_json 必须为 JSON 数组",

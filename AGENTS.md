@@ -243,6 +243,8 @@ agnes-video-generator/
 | `[Pipeline]` | 流水线通用（BasePipeline） |
 | `[MultiScene]` | multi_scene.py |
 | `[Simple]` / `[Creative]` / `[Manuscript]` / `[Anchor]` / `[Poetry]` | 各流水线 |
+| `[MusicVideo]` | music_video.py / music_timeline.py / 音乐视频创建路由（v7.1） |
+| `[Lyrics]` | core/audio/lyrics.py 歌词识别（v7.1） |
 | `[EndFrame]` / `[Keyframes]` | 尾帧 / 关键帧处理 |
 | `[TTS]` / `[Subtitle]` / `[Voices]` | tts.py / subtitle.py / voices.py |
 | `[Compositor]` | compositor/ concatenator/processor |

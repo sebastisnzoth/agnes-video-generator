@@ -44,6 +44,13 @@ export const STEPS: Record<string, StepDef[]> = {
     { key: 'subtitle', labelKey: 'pStepSubtitle' },
     { key: 'concatenation', labelKey: 'pStepConcat' },
   ],
+  music_video: [
+    { key: 'build_scenes', labelKey: 'mvStepBuildScenes' },
+    { key: 'video_generation', labelKey: 'pStepVideoGen' },
+    { key: 'audio', labelKey: 'mvStepAudio' },
+    { key: 'subtitle', labelKey: 'pStepSubtitle' },
+    { key: 'concatenation', labelKey: 'pStepConcat' },
+  ],
 }
 
 // step key -> state field 映射（与旧 isStepDoneInState 一致）
@@ -79,6 +86,13 @@ export const STEP_FIELD_MAP: Record<string, Record<string, string>> = {
     concatenate: 'step_concatenation',
   },
   poetry: {
+    build_scenes: 'step_build_scenes',
+    video_generation: 'step_video_generation',
+    audio: 'step_audio',
+    subtitle: 'step_subtitle',
+    concatenation: 'step_concatenation',
+  },
+  music_video: {
     build_scenes: 'step_build_scenes',
     video_generation: 'step_video_generation',
     audio: 'step_audio',

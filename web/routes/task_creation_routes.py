@@ -1,6 +1,7 @@
-"""任务创建路由：simple / creative / manuscript / poetry / anchor + 向后兼容旧端点。"""
+"""任务创建路由：simple / creative / manuscript / poetry / anchor / music-video + 向后兼容旧端点。"""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -10,7 +11,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-from core.async_io import write_bytes
+from core.async_io import async_open, write_bytes
+from core.compositor.ffmpeg_tool import probe_duration
 from core.config import (
     DURATION_FRAME_MAP,
     VIDEO_25_DURATIONS,
@@ -22,6 +24,16 @@ from core.config import (
 from core.i18n_backend import get_current_lang, translate
 from core.path_security import safe_join
 from core.pipelines import ALL_CHECKPOINTS
+from core.pipelines.music_video import (
+    CLIP_SECONDS,
+    DEFAULT_MUSIC_VIDEO_STYLE,
+    MAX_SONG_BYTES,
+    MAX_SONG_SECONDS,
+    MIN_SONG_SECONDS,
+    MUSIC_SUBTITLE_STYLE,
+    MUSIC_VIDEO_SIZES,
+    SONG_UPLOAD_EXTS,
+)
 from core.pipelines.poetry_video import POETRY_SUBTITLE_STYLE
 from core.screenwriter import build_poetry_scene_prompt
 from core.task_manager import TaskManager
@@ -31,6 +43,7 @@ from models.task import (
     CreativeVideoTask,
     ManualConfig,
     ManuscriptVideoTask,
+    MusicVideoTask,
     PoetryVideoTask,
     SimpleVideoTask,
     SubtitleConfig,
@@ -158,6 +171,68 @@ async def _save_upload_file(upload: UploadFile, upload_dir: str, prefix: str) ->
     os.makedirs(upload_dir, exist_ok=True)
     upload_path = safe_join(upload_dir, f"{prefix}{ext}")
     await write_bytes(upload_path, await upload.read())
+    return upload_path
+
+
+# 歌曲分块读取粒度（字节）：边读边累计大小，超限即中止，不把整个文件读入内存
+_SONG_CHUNK_BYTES = 1024 * 1024
+
+
+def _unlink_quietly(path: str) -> None:
+    """删除文件，忽略不存在 / 权限等错误（仅用于清理失败请求的半成品）。"""
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+async def _save_song_upload(upload: UploadFile, upload_dir: str) -> str:
+    """分块保存歌曲上传（音乐视频 v7.1），返回落盘路径。
+
+    - 扩展名不在 ``SONG_UPLOAD_EXTS`` 白名单 → 422；
+    - 累计字节超过 ``MAX_SONG_BYTES``（50 MB）→ 立即中止并删除半成品，返回 413；
+    - 空文件 → 422（``song_unreadable``）；
+    - 文件名统一替换为 UUID，扩展名取自白名单，经 ``safe_join`` 锚定在 upload_dir 内。
+    """
+    ext = os.path.splitext(upload.filename or "")[1].lower()
+    if ext not in SONG_UPLOAD_EXTS:
+        raise HTTPException(
+            status_code=422,
+            detail=translate(
+                "validation.song_format_unsupported", None,
+                exts=", ".join(sorted(SONG_UPLOAD_EXTS)),
+            ),
+        )
+    os.makedirs(upload_dir, exist_ok=True)
+    upload_path = safe_join(upload_dir, f"music_{uuid.uuid4().hex}{ext}")
+
+    total = 0
+    try:
+        async with await async_open(upload_path, "wb") as f:
+            while True:
+                chunk = await upload.read(_SONG_CHUNK_BYTES)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_SONG_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=translate(
+                            "validation.song_too_large", None,
+                            max_mb=MAX_SONG_BYTES // (1024 * 1024),
+                        ),
+                    )
+                await f.write(chunk)
+    except BaseException:
+        _unlink_quietly(upload_path)
+        raise
+
+    if total == 0:
+        _unlink_quietly(upload_path)
+        raise HTTPException(
+            status_code=422,
+            detail=translate("validation.song_unreadable", None),
+        )
     return upload_path
 
 
@@ -654,6 +729,91 @@ async def create_poetry_task(
     app_state.launch_background_task(deps.run_pipeline_with_concurrency(pipeline, state, tm))
     logger.info("[Poetry] Task created: %s, poem=%r (queued)",
                 safe_log(task_id), safe_log(poem_text[:20]))
+    return {"ok": True, "task_id": task_id, "dir_name": dir_name}
+
+
+@router.post("/api/tasks/music-video")
+async def create_music_video_task(
+    song: Optional[UploadFile] = File(None),
+    creative_name: str = Form(""),
+    style: str = Form(DEFAULT_MUSIC_VIDEO_STYLE),
+    video_width: int = Form(1280),
+    video_height: int = Form(720),
+    # 歌词识别（faster-whisper 自动转写）：失败时任务仍完成，只是没有字幕
+    lyrics_enabled: bool = Form(True),
+    subtitle_enabled: bool = Form(True),
+):
+    """创建音乐视频任务（类型 7 / v7.1）。
+
+    上传歌曲（≤50 MB，10–300 秒）→ 按 10 秒分段生成画面 → 以歌曲本身为音轨合成成片。
+    校验顺序与 system_design §4.1 一致：API Key → 分辨率 → 扩展名/大小（分块读取）→ 时长。
+    """
+    api_key = get_api_key()
+    if not api_key:
+        raise HTTPException(status_code=400, detail=api_key_missing_msg())
+
+    if (video_width, video_height) not in MUSIC_VIDEO_SIZES:
+        raise HTTPException(
+            status_code=422,
+            detail=translate("validation.music_video_size_invalid", None),
+        )
+    if song is None or not song.filename:
+        raise HTTPException(
+            status_code=422,
+            detail=translate("validation.song_missing", None),
+        )
+
+    song_path = await _save_song_upload(song, helpers.get_upload_dir())
+
+    # 时长探测：ffprobe / ffmpeg 解析失败时返回 0（不抛异常），按不可读处理
+    duration = await asyncio.to_thread(probe_duration, song_path)
+    if duration <= 0:
+        _unlink_quietly(song_path)
+        raise HTTPException(
+            status_code=422,
+            detail=translate("validation.song_unreadable", None),
+        )
+    if duration < MIN_SONG_SECONDS or duration > MAX_SONG_SECONDS:
+        _unlink_quietly(song_path)
+        raise HTTPException(
+            status_code=422,
+            detail=translate(
+                "validation.song_duration_range", None,
+                min=MIN_SONG_SECONDS, max=MAX_SONG_SECONDS,
+            ),
+        )
+
+    task_id = uuid.uuid4().hex[:12]
+    name = creative_name.strip() if creative_name else f"music_video_{task_id}"
+    dir_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{task_id}"
+    # 展示用原始文件名：仅用于界面，不参与任何路径拼接
+    display_name = os.path.basename(song.filename)[:200]
+
+    state = MusicVideoTask(
+        task_id=task_id,
+        creative_name=name,
+        song_name=display_name,
+        song_file=song_path,
+        song_duration=round(float(duration), 3),
+        style=(style or "").strip() or DEFAULT_MUSIC_VIDEO_STYLE,
+        clip_duration=CLIP_SECONDS,
+        lyrics_enabled=lyrics_enabled,
+        video_width=video_width,
+        video_height=video_height,
+        subtitle_config=SubtitleConfig(enabled=subtitle_enabled, style=MUSIC_SUBTITLE_STYLE),
+        # v7.0（issue #64）：任务级 UI 语言快照
+        ui_language=get_current_lang(),
+    )
+
+    pipeline = deps.create_pipeline_for_type(TaskType.MUSIC_VIDEO, api_key, task_id, dir_name)
+    app_state.active_pipelines[task_id] = pipeline
+
+    tm = TaskManager(task_id, dir_name=dir_name)
+    tm.create(state)
+    deps.mark_task_queued(tm, lang=state.ui_language)
+    app_state.launch_background_task(deps.run_pipeline_with_concurrency(pipeline, state, tm))
+    logger.info("[MusicVideo] Task created: %s, song=%r, %.1fs (queued)",
+                safe_log(task_id), safe_log(display_name), duration)
     return {"ok": True, "task_id": task_id, "dir_name": dir_name}
 
 

@@ -15,6 +15,7 @@ from core.pipelines import (
     BasePipeline,
     CreativeVideoPipeline,
     ManuscriptVideoPipeline,
+    MusicVideoPipeline,
     PipelineShutdown,
     PoetryVideoPipeline,
     SimpleVideoPipeline,
@@ -75,6 +76,15 @@ def create_pipeline_for_type(
         )
     elif task_type == TaskType.POETRY:
         return PoetryVideoPipeline(
+            api_key=api_key,
+            task_id=task_id,
+            dir_name=dir_name,
+            chat_model=text_model,
+            video_model=video_model,
+            shutdown_event=shutdown_event,
+        )
+    elif task_type == TaskType.MUSIC_VIDEO:
+        return MusicVideoPipeline(
             api_key=api_key,
             task_id=task_id,
             dir_name=dir_name,

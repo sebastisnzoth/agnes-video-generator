@@ -111,6 +111,7 @@ const INPUT_FIELDS: Record<string, { field: string; label: string }[]> = {
     { field: 'anchor_prompt', label: 'tiAnchorPrompt' },
   ],
   poetry: [{ field: 'poem_text', label: 'tiPoem' }],
+  music_video: [{ field: 'song_name', label: 'tiSong' }],
   simple: [{ field: 'prompt', label: 'tiPrompt' }],
 }
 
@@ -136,6 +137,11 @@ const CONFIG_FIELDS: Record<string, { field: string; label: string; fmt?: (v: an
     { field: 'video_width', label: 'tiWidth', fmt: (v) => String(v ?? '') },
     { field: 'video_height', label: 'tiHeight', fmt: (v) => String(v ?? '') },
     { field: 'scene_count', label: 'tiScenes', fmt: (v) => String(v ?? '') },
+    { field: 'style', label: 'tiStyle' },
+  ],
+  music_video: [
+    { field: 'video_width', label: 'tiWidth', fmt: (v) => String(v ?? '') },
+    { field: 'video_height', label: 'tiHeight', fmt: (v) => String(v ?? '') },
     { field: 'style', label: 'tiStyle' },
   ],
   simple: [

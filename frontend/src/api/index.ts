@@ -269,6 +269,9 @@ export function submitAnchor(form: FormData) {
 export function submitPoetry(form: FormData) {
   return apiFetch('/api/tasks/poetry', { method: 'POST', body: form }).then((r) => r.json())
 }
+export function submitMusicVideo(form: FormData) {
+  return apiFetch('/api/tasks/music-video', { method: 'POST', body: form }).then((r) => r.json())
+}
 export function submitImage(form: FormData) {
   return apiFetch('/api/image/generate', { method: 'POST', body: form }).then((r) => r.json())
 }

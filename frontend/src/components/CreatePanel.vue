@@ -8,6 +8,7 @@ import CreativeForm from './forms/CreativeForm.vue'
 import ManuscriptForm from './forms/ManuscriptForm.vue'
 import AnchorForm from './forms/AnchorForm.vue'
 import PoetryForm from './forms/PoetryForm.vue'
+import MusicVideoForm from './forms/MusicVideoForm.vue'
 
 const { trackEvent } = useGa()
 
@@ -17,6 +18,7 @@ const taskTypes = [
   { key: 'manuscript', icon: '📝', label: 'ttManuscript' },
   { key: 'anchor', icon: '🎙️', label: 'ttAnchor' },
   { key: 'poetry', icon: '📜', label: 'ttPoetry' },
+  { key: 'music_video', icon: '🎵', label: 'ttMusicVideo' },
 ]
 
 // v6.0/6.1 手动模式：暂停点选项（按任务类型）
@@ -58,8 +60,8 @@ const pausePointOptions: Record<string, { key: string; label: string }[]> = {
   ],
 }
 
-// 手动模式支持的任务类型（simple/simple_image 不支持暂停，PRD §4.3）
-const manualSupported = computed(() => !['simple', 'image'].includes(appState.currentTaskType))
+// 手动模式支持的任务类型（simple/simple_image 不支持暂停，PRD §4.3；music_video 无暂停点，v7.1）
+const manualSupported = computed(() => !['simple', 'image', 'music_video'].includes(appState.currentTaskType))
 
 // 当前任务类型可选的暂停点
 const currentPausePoints = computed(() => pausePointOptions[appState.currentTaskType] || [])
@@ -163,5 +165,6 @@ function selectExecMode(mode: 'auto' | 'manual') {
     <ManuscriptForm v-else-if="appState.currentTaskType === 'manuscript'" />
     <AnchorForm v-else-if="appState.currentTaskType === 'anchor'" />
     <PoetryForm v-else-if="appState.currentTaskType === 'poetry'" />
+    <MusicVideoForm v-else-if="appState.currentTaskType === 'music_video'" />
   </div>
 </template>

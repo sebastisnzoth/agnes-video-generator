@@ -20,6 +20,7 @@ const typeLabelKey: Record<string, string> = {
   manuscript: 'typeManuscript',
   anchor: 'typeAnchor',
   poetry: 'typePoetry',
+  music_video: 'typeMusicVideo',
   image: 'typeImage',
 }
 

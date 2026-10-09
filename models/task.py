@@ -36,6 +36,7 @@ class TaskType(str, Enum):
     ANCHOR = "anchor"
     IMAGE = "image"
     POETRY = "poetry"
+    MUSIC_VIDEO = "music_video"
 
 
 class VideoMode(str, Enum):
@@ -464,6 +465,47 @@ class PoetryVideoTask(BaseTaskState):
     subtitle_styles_path: str = ""
 
 
+class MusicVideoTask(BaseTaskState):
+    """音乐视频任务（类型 7 / v7.1）
+
+    用户上传一首歌曲（≤5 分钟），系统按固定 10 秒分段由 Agnes 视频 API 逐段生成
+    画面（LLM 依据歌词窗口与视觉风格拟定分镜），可选地用 faster-whisper 自动识别
+    歌词并叠加字幕，最终以歌曲本身作为唯一音轨合成成片。
+
+    设计依据见 docs/plans/v7.1/music_video_PRD.md 与 system_design.md。
+    """
+
+    task_type: Literal[TaskType.MUSIC_VIDEO] = TaskType.MUSIC_VIDEO
+
+    # 输入
+    song_name: str = ""             # 用户上传的原始文件名（展示用）
+    song_file: str = ""             # 上传落盘后的源文件路径（uploads/ 下）
+    song_duration: float = 0.0      # 秒，上传时探测
+    style: str = ""                 # 视觉风格；为空时使用默认值
+    clip_duration: int = 10         # 每段目标时长（秒）
+
+    # 歌词（自动识别）
+    lyrics_enabled: bool = True
+    lyric_lines: List[dict] = Field(default_factory=list)  # [{"start","end","text"}]
+
+    # 分段：精确浮点跨度，合成以此为准（而非 Agnes 实际返回的片段时长）
+    scene_spans: List[List[float]] = Field(default_factory=list)
+    scenes: List[SceneTask] = Field(default_factory=list)
+
+    # MultiScene 模板方法步骤字段
+    step_build_scenes: StepStatus = StepStatus.PENDING
+    step_reference_images: StepStatus = StepStatus.PENDING
+    step_video_generation: StepStatus = StepStatus.PENDING
+    step_audio: StepStatus = StepStatus.PENDING
+    step_subtitle: StepStatus = StepStatus.PENDING
+    step_concatenation: StepStatus = StepStatus.PENDING
+
+    # 产物
+    combined_audio: str = ""
+    combined_subtitle: str = ""
+    subtitle_styles_path: str = ""
+
+
 class SimpleImageTask(BaseTaskState):
     """简单图片任务（类型 5）
 
@@ -483,7 +525,7 @@ class SimpleImageTask(BaseTaskState):
 # 联合类型 + 反序列化工厂
 # ═══════════════════════════════════════════════════
 
-AnyTaskState = Union[SimpleVideoTask, CreativeVideoTask, ManuscriptVideoTask, AnchorVideoTask, PoetryVideoTask, SimpleImageTask]
+AnyTaskState = Union[SimpleVideoTask, CreativeVideoTask, ManuscriptVideoTask, AnchorVideoTask, PoetryVideoTask, MusicVideoTask, SimpleImageTask]
 
 # 用于 TaskManager.load()：根据 task_type 字段选择正确的模型类
 _TASK_TYPE_MAP: dict[str, type[BaseTaskState]] = {
@@ -492,6 +534,7 @@ _TASK_TYPE_MAP: dict[str, type[BaseTaskState]] = {
     TaskType.MANUSCRIPT: ManuscriptVideoTask,
     TaskType.ANCHOR: AnchorVideoTask,
     TaskType.POETRY: PoetryVideoTask,
+    TaskType.MUSIC_VIDEO: MusicVideoTask,
     TaskType.IMAGE: SimpleImageTask,
 }
 

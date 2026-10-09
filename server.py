@@ -13,6 +13,7 @@ Agnes Video Generator — FastAPI 服务层（Batch 1 模块化后）。
 - POST /api/tasks/manuscript  — 稿件长视频生成
 - POST /api/tasks/poetry     — 诗词视频生成
 - POST /api/tasks/anchor     — 数字人口播生成
+- POST /api/tasks/music-video — 音乐视频生成（上传歌曲，v7.1）
 - POST /api/tasks             — 向后兼容（映射到 creative）
 """
 

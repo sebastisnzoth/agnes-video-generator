@@ -27,6 +27,7 @@ from models.task import (
     CreativeVideoTask,
     ManuscriptParagraph,
     ManuscriptVideoTask,
+    MusicVideoTask,
     SceneTask,
     StepStatus,
     SubtitleConfig,
@@ -65,6 +66,18 @@ def _manuscript(paragraph_count=2):
     return s
 
 
+def _music(scene_count=2):
+    s = MusicVideoTask(
+        task_type="music_video",
+        creative_name="ut",
+        song_name="song.mp3",
+        song_file="uploads/music_x.mp3",
+        subtitle_config=SubtitleConfig(enabled=True),
+    )
+    s.scenes = [SceneTask(index=i, scene_prompt=f"p{i}", duration=10) for i in range(scene_count)]
+    return s
+
+
 def _anchor(audio_source="post_stitch"):
     return AnchorVideoTask(
         task_type="anchor",
@@ -100,6 +113,11 @@ def test_get_steps_for_state_all_types():
     assert len(_get_steps_for_state(_manuscript())) > 0
     assert len(_get_steps_for_state(_anchor("post_stitch"))) > 0
     assert len(_get_steps_for_state(_anchor("model"))) > 0
+    music_steps = [key for key, _ in _get_steps_for_state(_music())]
+    assert music_steps == [
+        "step_build_scenes", "step_reference_images", "step_video_generation",
+        "step_audio", "step_subtitle", "step_concatenation",
+    ]
 
     class _Dummy:
         task_type = "x"
@@ -110,6 +128,8 @@ def test_get_steps_for_state_all_types():
 def test_get_artifact_defs_all_types():
     assert len(_get_artifact_defs(_creative())) > 0
     assert len(_get_artifact_defs(_manuscript())) > 0
+    # 音乐视频：视频 / 歌曲音频 / 歌词 JSON / 字幕 / 成片
+    assert len(_get_artifact_defs(_music())) == 5
     # model 模式无音频/字幕/最终视频，产物数少于 post_stitch
     assert len(_get_artifact_defs(_anchor("model"))) < len(
         _get_artifact_defs(_anchor("post_stitch"))
@@ -136,6 +156,23 @@ def test_list_artifacts_manuscript(monkeypatch, tmp_path):
     assert "manuscript:scene_prompts" in ids
     assert "manuscript:video:0" in ids and "manuscript:video:1" in ids
     assert "manuscript:final_video" in ids
+
+
+def test_list_artifacts_music_video(monkeypatch, tmp_path):
+    monkeypatch.setattr("core.artifacts.get_working_dir", lambda: str(tmp_path))
+    (tmp_path / "task1").mkdir()
+    (tmp_path / "task1" / "song.mp3").write_bytes(b"mp3")
+    arts = {a.artifact_id: a for a in list_artifacts(_music(scene_count=2), "task1")}
+    assert {
+        "music_video:video:0", "music_video:video:1", "music_video:audio",
+        "music_video:lyrics_json", "music_video:subtitle", "music_video:final_video",
+    } <= set(arts)
+    assert arts["music_video:audio"].exists is True
+    assert arts["music_video:audio"].file_relpath == "song.mp3"
+    assert arts["music_video:audio"].label_key == "artSong"
+    assert arts["music_video:lyrics_json"].label_key == "artLyrics"
+    assert arts["music_video:lyrics_json"].exists is False
+    assert arts["music_video:video:1"].scope_index == 1
 
 
 def test_list_artifacts_anchor_post_stitch(monkeypatch, tmp_path):
