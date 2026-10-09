@@ -734,5 +734,19 @@
   "presetName_anime_vivid": "Vivid Anime",
   "presetName_anime_retro": "Retro Anime",
   "presetName_cyberpunk": "Cyberpunk",
-  "presetName_epic_fantasy": "Epic Fantasy"
+  "presetName_epic_fantasy": "Epic Fantasy",
+  "mvSingerSection": "Singer / Performer",
+  "mvSingerNone": "None",
+  "mvSingerPhoto": "Use my photo",
+  "mvSingerAi": "Generate with AI",
+  "mvChoosePhoto": "Choose photo",
+  "mvNoPhoto": "No photo chosen",
+  "mvSingerPromptLabel": "Performer description",
+  "mvSingerPromptPh": "e.g. a young singer with long silver hair and a black leather jacket, under stage spotlights",
+  "mvSingerHint": "The photo or the AI-generated image becomes the reference for every segment, keeping one consistent character throughout the video; in photo mode the description can be left empty.",
+  "mvNeedPhoto": "Please upload a performer photo first",
+  "mvNeedPrompt": "Please enter a performer description",
+  "mvStepReference": "Reference image",
+  "artStoryboard": "Storyboard",
+  "artSingerImage": "Performer image"
 }

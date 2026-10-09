@@ -337,12 +337,17 @@ Night rain, wind sounds... | Rain on window, petals on stone""",
             scenes.append({"narration": verse, "scene_prompt": prompt})
         return scenes
 
-    def generate_music_video_prompts(self, style: str, windows: List[str]) -> List[str]:
-        """为音乐视频的每个时间段生成一条画面描述（v7.1）。
+    def generate_music_video_prompts(
+        self, style: str, windows: List[str], performer: str = "",
+    ) -> List[str]:
+        """为音乐视频的每个时间段生成一条画面描述（v7.1，v7.2 增加表演者注入）。
 
         Args:
             style: 视觉风格文本（调用方已保证非空）。
             windows: 每段对应的歌词窗口文本；无歌词的段落传 ``instrumental``。
+            performer: 歌手/演员描述（v7.2）。非空时注入提示词，要求全片保持同一
+                表演者形象；为空时提示词与 v7.1 逐字节一致（关键字参数，不改变
+                既有位置参数调用约定）。
 
         Returns:
             画面描述列表，最多 ``len(windows)`` 条；条数不足由调用方用模板补齐。
@@ -368,6 +373,12 @@ Night rain, wind sounds... | Rain on window, petals on stone""",
             "Lyrics for each segment ('instrumental' means no vocals):\n"
             f"{segment_lines}"
         )
+        if performer:
+            system_prompt += (
+                " The SAME performer (the singer) appears in every segment: keep their "
+                "described appearance consistent and feature them performing where natural."
+            )
+            user_prompt += f"\nPerformer: {performer}"
         logger.info(f"[Screenwriter] Music video prompts for {n} segments...")
         data = self._chat_json(system_prompt, user_prompt)
         raw = data.get("prompts") if isinstance(data, dict) else None

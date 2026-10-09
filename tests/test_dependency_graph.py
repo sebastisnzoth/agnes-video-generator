@@ -347,6 +347,39 @@ class TestMusicVideo:
         )
         assert plan.affected == []
 
+    def test_singer_image_affects_videos_and_final(self):
+        """v7.2：歌手参考图是每段提交的输入 → 段视频 + 成片受影响，音轨/字幕不受影响。"""
+        from core.dependency_graph import get_dependency_graph
+        from models.task import TaskType
+
+        state = _make_music_state(2)
+        plan = get_dependency_graph(TaskType.MUSIC_VIDEO).compute_impact(
+            state, ["music_video:singer_image"],
+        )
+        assert "music_video:singer_image" in plan.affected
+        assert "music_video:video:0" in plan.affected
+        assert "music_video:video:1" in plan.affected
+        assert "music_video:final_video" in plan.affected
+        assert "music_video:audio" not in plan.affected
+        assert "music_video:subtitle" not in plan.affected
+
+    def test_storyboard_is_read_only_reference(self):
+        """v7.2：storyboard 由歌词+画面组装，只读参考，改动不触发任何重生成。"""
+        from core.dependency_graph import get_dependency_graph
+        from models.task import TaskType
+
+        state = _make_music_state(2)
+        plan = get_dependency_graph(TaskType.MUSIC_VIDEO).compute_impact(
+            state, ["music_video:storyboard"],
+        )
+        assert plan.affected == []
+
+    def test_singer_image_checkpoint_mapping(self):
+        from core.artifacts import checkpoint_for_artifact
+
+        assert checkpoint_for_artifact("music_video:singer_image") == "references"
+        assert checkpoint_for_artifact("music_video:storyboard") == "scenes"
+
     def test_resolution_change_keeps_song_and_subtitles(self):
         from core.dependency_graph import get_dependency_graph
         from models.task import TaskType

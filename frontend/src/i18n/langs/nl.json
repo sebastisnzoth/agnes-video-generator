@@ -741,5 +741,19 @@
   "modelAdd": "Model toevoegen",
   "modelInputHint": "Typ direct of klik op «Modellen ophalen» om ze aan de lijst toe te voegen; gedupliceerd bij opslaan",
   "modelInputPlaceholder": "Voer een model-ID in…",
-  "modelListLabel": "Modellijst"
+  "modelListLabel": "Modellijst",
+  "mvSingerSection": "Zanger / Performer",
+  "mvSingerNone": "Geen",
+  "mvSingerPhoto": "Mijn foto gebruiken",
+  "mvSingerAi": "Genereren met AI",
+  "mvChoosePhoto": "Foto kiezen",
+  "mvNoPhoto": "Geen foto gekozen",
+  "mvSingerPromptLabel": "Beschrijving van de performer",
+  "mvSingerPromptPh": "bijv. een jonge zangeres met lang zilveren haar en een zwarte leren jas in het podiumlicht",
+  "mvSingerHint": "De foto of het AI-gegenereerde beeld wordt de referentie voor elk segment, zodat het personage overal hetzelfde blijft; in de fotomodus mag de beschrijving leeg blijven.",
+  "mvNeedPhoto": "Upload eerst een foto van de zanger",
+  "mvNeedPrompt": "Vul de beschrijving van de performer in",
+  "mvStepReference": "Referentiebeeld",
+  "artStoryboard": "Storyboard",
+  "artSingerImage": "Foto van de zanger"
 }

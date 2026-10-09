@@ -23,12 +23,13 @@ import os
 import shutil
 from typing import List, Optional, Tuple
 
+from core.api.agnes_image import AgnesImageAPI
 from core.api.agnes_video import AgnesVideoAPI
 from core.audio.lyrics import LyricLine, get_lyrics_model_name, lyric_lines_to_srt, transcribe_lyrics
 from core.compositor.concatenator import VideoConcatenator
 from core.compositor.ffmpeg_tool import probe_duration
 from core.compositor.music_timeline import build_timed_video_track, plan_uniform_spans, transcode_song_to_mp3
-from core.config import DEFAULT_TEXT_MODEL
+from core.config import DEFAULT_IMAGE_MODEL, DEFAULT_TEXT_MODEL
 from core.pipelines import MultiScenePipeline
 from core.screenwriter import Screenwriter
 from models.task import MusicVideoTask, SceneTask, SubtitleStyle
@@ -37,6 +38,17 @@ logger = logging.getLogger(__name__)
 
 # 未指定风格时的默认视觉风格（PRD §八）
 DEFAULT_MUSIC_VIDEO_STYLE = "cinematic music video, consistent color grading"
+
+# v7.2：歌手/演员参考图与分镜故事板（产物清单见 system_design §二/§五）
+SINGER_IMAGE_FILENAME = "singer.png"
+STORYBOARD_FILENAME = "storyboard.json"
+# ai 模式描述缺失时的兜底 t2i 提示词（路由已强制必填，此处仅防御测试直建态）
+_DEFAULT_SINGER_PROMPT_EN = (
+    "a singer performing on stage, upper body, facing camera, cinematic lighting, no text"
+)
+# photo 模式未填描述时注入分镜提示词的占位（人物一致性由参考图本身承担）
+_PERFORMER_FROM_REFERENCE = "the performer from the reference image"
+_PERFORMER_GENERIC = "the lead singer"
 
 # 上传与时长约束（PRD §三.1、system_design §4.1）
 SONG_UPLOAD_EXTS = frozenset({".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".opus"})
@@ -75,14 +87,38 @@ _PROGRESS_SONG_READY = 0.02
 _PROGRESS_LYRICS_RUNNING = 0.04
 _PROGRESS_LYRICS_DONE = 0.08
 _PROGRESS_PROMPTS_RUNNING = 0.10
+# reference_images 阶段（v7.2 歌手/演员，阶段边界 0.15 ~ 0.30）
+_PROGRESS_SINGER_RUNNING = 0.16
+_PROGRESS_SINGER_DONE = 0.28
 # 合成阶段起点（阶段边界 0.90 ~ 0.98）
 _PROGRESS_COMPOSITE = 0.90
+
+
+def _stage_singer_photo(src: str, dst: str) -> None:
+    """把用户上传的歌手照片转存为任务目录内的 PNG（v7.2，在线程中执行）。
+
+    EXIF 方向校正 → 最长边 >2048 等比缩至 2048 → 保存 ``dst``（固定扩展名
+    ``singer.png``，避免 data-URI MIME 与真实字节不一致；产物清单按固定文件名
+    解析）。Pillow 为硬依赖（requirements.txt），任一环节异常向上抛，
+    由调用方包成 RuntimeError 使任务失败。
+    """
+    from PIL import Image, ImageOps
+
+    with Image.open(src) as im:
+        im = ImageOps.exif_transpose(im)
+        # PNG 不支持 CMYK/YCbCr 等模式；统一转 RGB（保留已兼容的 L/RGBA/P）
+        if im.mode not in ("L", "LA", "RGB", "RGBA", "P"):
+            im = im.convert("RGB")
+        if max(im.size) > 2048:
+            im.thumbnail((2048, 2048))
+        im.save(dst, "PNG")
 
 
 class MusicVideoPipeline(MultiScenePipeline):
     """音乐视频生成流水线。
 
     歌曲 → （歌词）→ 定长分段 → 逐段视频 → 定长时间轴 → 歌曲作为唯一音轨合成。
+    v7.2：可选歌手/演员参考图（照片转存 / AI 生成）+ 分镜故事板 storyboard.json。
     """
 
     def __init__(
@@ -91,11 +127,13 @@ class MusicVideoPipeline(MultiScenePipeline):
         task_id: str,
         dir_name: Optional[str] = None,
         chat_model: str = DEFAULT_TEXT_MODEL,
+        image_model: str = DEFAULT_IMAGE_MODEL,
         video_model: str = "agnes-video-v2.0",
         progress_callback: Optional[callable] = None,
         shutdown_event: Optional = None,
     ):
         super().__init__(api_key, task_id, dir_name, progress_callback, shutdown_event)
+        self.image_generator = AgnesImageAPI(api_key=api_key, model=image_model)
         self.video_api = AgnesVideoAPI(api_key=api_key, model=video_model)
         self.screenwriter = Screenwriter(api_key=api_key, model=chat_model)
         self._state: Optional[MusicVideoTask] = None
@@ -121,8 +159,76 @@ class MusicVideoPipeline(MultiScenePipeline):
         return set()
 
     async def _build_reference_images(self) -> None:
-        """音乐视频不使用参考图（每段仅由文本提示词驱动），跳过。"""
-        return None
+        """Step: 生成歌手/演员参考图（v7.2）。
+
+        - ``none``：保持 v7.1 行为（无参考图，纯 t2v）；
+        - ``photo``：用户照片转存为 ``singer.png``；
+        - ``ai``：t2i 按描述生成 ``singer.png``。
+
+        ``singer.png`` 已存在时跳过（断点续传）。歌手是用户显式选择的核心输入，
+        任何失败都抛错使任务失败（PRD FR-7），而非静默降级。
+        """
+        state = self._state
+        mode = state.singer_mode or "none"
+        if mode == "none":
+            return
+
+        dst = os.path.join(self.working_dir, SINGER_IMAGE_FILENAME)
+        if os.path.exists(dst) and os.path.getsize(dst) > 0:
+            state.singer_image = dst
+            self.task_manager.update_state(singer_image=dst)
+            logger.info("[MusicVideo] singer image already exists, skipping")
+            return
+
+        if mode == "photo":
+            await self._emit(
+                "step_reference_images", "running",
+                self._t("progress.music_video.singer_photo_running"),
+                _PROGRESS_SINGER_RUNNING,
+            )
+            src = state.singer_photo or ""
+            if not src or not os.path.exists(src):
+                raise RuntimeError(self._t("progress.music_video.singer_photo_missing"))
+            try:
+                await asyncio.to_thread(_stage_singer_photo, src, dst)
+            except Exception as e:
+                logger.error("[MusicVideo] stage singer photo failed: %s", e)
+                raise RuntimeError(
+                    self._t("progress.music_video.singer_failed", reason=str(e))
+                ) from e
+        else:  # ai
+            await self._emit(
+                "step_reference_images", "running",
+                self._t("progress.music_video.singer_ai_running"),
+                _PROGRESS_SINGER_RUNNING,
+            )
+            prompt = (state.singer_prompt or "").strip() or _DEFAULT_SINGER_PROMPT_EN
+            size = f"{state.video_width}x{state.video_height}"
+            try:
+                img_output = await self.image_generator.generate_single_image(
+                    prompt=prompt, size=size,
+                )
+                await img_output.save(dst)
+            except Exception as e:
+                logger.error("[MusicVideo] singer image generation failed: %s", e)
+                raise RuntimeError(
+                    self._t("progress.music_video.singer_failed", reason=str(e))
+                ) from e
+
+        state.singer_image = dst
+        self.task_manager.update_state(singer_image=dst)
+        await self._emit(
+            "step_reference_images", "completed",
+            self._t("progress.music_video.singer_done"), _PROGRESS_SINGER_DONE,
+        )
+
+    def _get_scene_ref_images(self, scene: SceneTask, index: int) -> List[str]:
+        """v7.2：所有段共用同一张歌手/演员参考图（ti2vid 保持人物一致）。"""
+        state = self._state
+        singer_image = state.singer_image if state else ""
+        if singer_image and os.path.exists(singer_image):
+            return [singer_image]
+        return []
 
     # ------------------------------------------------------------------
     # Phase 1: 分段（歌曲转码 → 歌词 → 定长切段 → 逐段提示词）
@@ -136,6 +242,13 @@ class MusicVideoPipeline(MultiScenePipeline):
         state = self._state
         if state.scenes and state.scene_spans:
             logger.info("[MusicVideo] _build_scenes: SKIP (scenes already exist)")
+            # v7.2：旧任务/中断恢复时 scenes 已在但故事板缺失 → 从 state 补写（不调 LLM）
+            storyboard_path = os.path.join(self.working_dir, STORYBOARD_FILENAME)
+            if not os.path.exists(storyboard_path):
+                try:
+                    self._write_storyboard_from_state()
+                except Exception as e:
+                    logger.warning("[MusicVideo] storyboard backfill failed: %s", e)
             return
 
         self._check_shutdown()
@@ -158,9 +271,10 @@ class MusicVideoPipeline(MultiScenePipeline):
         windows = [self._lyric_window(lines, start, end) for start, end in spans]
         style = (state.style or "").strip() or DEFAULT_MUSIC_VIDEO_STYLE
         state.style = style
+        performer = self._resolve_performer_text()
 
         self._check_shutdown()
-        prompts, source = await self._generate_prompts(style, windows)
+        prompts, source = await self._generate_prompts(style, windows, performer=performer)
 
         scenes: List[SceneTask] = []
         for i, (start, end) in enumerate(spans):
@@ -188,6 +302,90 @@ class MusicVideoPipeline(MultiScenePipeline):
             "scene_spans": spans,
             "prompt_source": source,
         })
+        self._write_storyboard(style, spans, windows, prompts, source)
+        await self._emit(
+            "step_build_scenes", "running",
+            self._t("progress.music_video.storyboard_done", n=len(spans)),
+            _PROGRESS_PROMPTS_RUNNING,
+        )
+
+    def _resolve_performer_text(self) -> str:
+        """按歌手模式解析注入分镜提示词的表演者文本（v7.2，纯读 state）。
+
+        ``none`` 返回空串（提示词与 v7.1 逐字节一致）；``photo`` 未填描述时用
+        占位短语（人物一致性由参考图承担）；``ai`` 描述为路由必填，空值仅可能
+        来自测试直建态，回退通用短语。
+        """
+        state = self._state
+        mode = state.singer_mode or "none"
+        if mode == "none":
+            return ""
+        text = (state.singer_prompt or "").strip()
+        if text:
+            return text
+        if mode == "photo":
+            return _PERFORMER_FROM_REFERENCE
+        return _PERFORMER_GENERIC
+
+    def _write_storyboard(
+        self, style: str, spans: List[List[float]], windows: List[str],
+        prompts: List[str], prompt_source: str,
+    ) -> str:
+        """写出 ``storyboard.json``（v7.2：时间段 + AI 歌词 + LLM 画面的组装产物）。"""
+        state = self._state
+        mode = state.singer_mode or "none"
+        storyboard = {
+            "format_version": "1.0",
+            "song": {"name": state.song_name, "duration": state.song_duration},
+            "style": style,
+            "singer": {
+                "mode": mode,
+                "description": (state.singer_prompt or "").strip(),
+                "image": SINGER_IMAGE_FILENAME if mode != "none" else None,
+            },
+            "prompt_source": prompt_source,
+            "segments": [
+                {
+                    "index": i,
+                    "start": round(float(start), 3),
+                    "end": round(float(end), 3),
+                    "lyrics": windows[i],
+                    "visual": prompts[i],
+                }
+                for i, (start, end) in enumerate(spans)
+            ],
+        }
+        path = os.path.join(self.working_dir, STORYBOARD_FILENAME)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(storyboard, f, ensure_ascii=False, indent=2)
+        logger.info("[MusicVideo] storyboard saved → %s (%d segments)", path, len(spans))
+        return path
+
+    def _write_storyboard_from_state(self) -> str:
+        """resume 补写：scenes 已存在时从 state 重建故事板（不调 LLM）。"""
+        state = self._state
+        lyric_dicts = state.lyric_lines or []
+        windows: List[str] = []
+        for start, end in state.scene_spans:
+            texts = [
+                str(d.get("text", "")) for d in lyric_dicts
+                if float(d.get("end", 0.0)) > start and float(d.get("start", 0.0)) < end
+            ]
+            windows.append(" / ".join(t for t in texts if t) or INSTRUMENTAL_TAG)
+        prompts = [s.scene_prompt for s in state.scenes]
+
+        # prompt_source 以同一次生成写入的 prompts.json 为准，缺失时标 unknown
+        prompt_source = "unknown"
+        prompts_path = os.path.join(self.working_dir, "prompts.json")
+        try:
+            with open(prompts_path, "r", encoding="utf-8") as f:
+                prompt_source = str(json.load(f).get("prompt_source") or "unknown")
+        except (OSError, ValueError):
+            pass
+
+        return self._write_storyboard(
+            state.style, state.scene_spans, windows, prompts, prompt_source,
+        )
 
     async def _prepare_song(self) -> str:
         """确保 ``song.mp3`` 存在并写回 ``song_duration``（幂等，可重复调用）。
@@ -255,8 +453,14 @@ class MusicVideoPipeline(MultiScenePipeline):
         texts = [line.text for line in lines if line.end > start and line.start < end]
         return " / ".join(texts) if texts else INSTRUMENTAL_TAG
 
-    async def _generate_prompts(self, style: str, windows: List[str]) -> Tuple[List[str], str]:
+    async def _generate_prompts(
+        self, style: str, windows: List[str], performer: str = "",
+    ) -> Tuple[List[str], str]:
         """逐段画面描述：LLM 优先，条数不足或调用失败时由模板补齐。
+
+        Args:
+            performer: v7.2 歌手/演员描述；非空时透传给 LLM（关键字参数，
+                空串时提示词与 v7.1 一致）。
 
         Returns:
             ``(prompts, source)``，``source`` ∈ {``llm``, ``partial``, ``template``}。
@@ -270,12 +474,13 @@ class MusicVideoPipeline(MultiScenePipeline):
         try:
             generated = await asyncio.to_thread(
                 self.screenwriter.generate_music_video_prompts, style, windows,
+                performer=performer,
             )
         except Exception as e:
             logger.warning("[MusicVideo] LLM prompts failed, using template prompts: %s", e)
 
         prompts = [
-            generated[i] if i < len(generated) else self._template_prompt(style, i, n)
+            generated[i] if i < len(generated) else self._template_prompt(style, i, n, performer)
             for i in range(n)
         ]
         if len(generated) >= n:
@@ -293,9 +498,13 @@ class MusicVideoPipeline(MultiScenePipeline):
         return prompts, source
 
     @staticmethod
-    def _template_prompt(style: str, index: int, total: int) -> str:
-        """LLM 不可用时的模板提示词：只含风格与段落位置，不含歌词，避免画面出现文字。"""
-        return f"{style}, segment {index + 1} of {total}, no on-screen text"
+    def _template_prompt(style: str, index: int, total: int, performer: str = "") -> str:
+        """LLM 不可用时的模板提示词：只含风格与段落位置，不含歌词，避免画面出现文字。
+
+        v7.2：``performer`` 非空时拼接表演者（与 LLM 路径保持同一信息面）。
+        """
+        head = f"{style}, {performer}" if performer else style
+        return f"{head}, segment {index + 1} of {total}, no on-screen text"
 
     # ------------------------------------------------------------------
     # Phase 3: 视频生成 → 基类 _generate_videos（逐段提交 + 续传）

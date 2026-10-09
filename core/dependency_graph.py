@@ -52,6 +52,8 @@ T_SCENE_PROMPTS = "scene_prompts"
 T_ANCHOR_IMAGE = "anchor_image"
 T_CLIP_PROMPTS = "clip_prompts"
 T_CLIP = "clip"
+T_STORYBOARD = "storyboard"       # v7.2 音乐视频分镜故事板（只读参考，不入边表）
+T_SINGER_IMAGE = "singer_image"   # v7.2 音乐视频歌手/演员参考图
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -110,10 +112,13 @@ _PRODUCT_EDGES: dict[str, dict[str, set[str]]] = {
     },
     # 音乐视频（v7.1）：歌曲与歌词由用户/识别给定，不走 LLM 分镜链路；
     # 改单段视频只影响成片；改歌曲音轨或字幕影响成片（歌词 JSON 只读，不入图）
+    # v7.2：歌手参考图是每段提交的真实输入 → 替换后段视频与成片受影响并级联
+    # 清理（storyboard 与 lyrics_json 同为只读组装产物，不入边表）
     TaskType.MUSIC_VIDEO.value: {
         f"{T_VIDEO}:{_ANY}": {T_FINAL_VIDEO},
         T_AUDIO: {T_FINAL_VIDEO},
         T_SUBTITLE: {T_FINAL_VIDEO},
+        T_SINGER_IMAGE: {T_VIDEO, T_FINAL_VIDEO},
     },
 }
 
@@ -194,6 +199,9 @@ _TYPE_TO_CHECKPOINT_COARSE: dict[str, str] = {
     T_ANCHOR_IMAGE: "references",
     T_CLIP_PROMPTS: "scenes",
     T_CLIP: "videos",
+    # v7.2 音乐视频
+    T_STORYBOARD: "scenes",
+    T_SINGER_IMAGE: "references",
 }
 
 # 检查点依赖链（PRD §4.3 简化版，供前端展示）

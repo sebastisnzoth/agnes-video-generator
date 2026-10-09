@@ -734,5 +734,19 @@
   "presetName_anime_vivid": "现代动漫",
   "presetName_anime_retro": "复古动漫",
   "presetName_cyberpunk": "赛博霓虹",
-  "presetName_epic_fantasy": "史诗奇幻"
+  "presetName_epic_fantasy": "史诗奇幻",
+  "mvSingerSection": "歌手 / 演员",
+  "mvSingerNone": "不使用",
+  "mvSingerPhoto": "使用我的照片",
+  "mvSingerAi": "用 AI 生成",
+  "mvChoosePhoto": "选择照片",
+  "mvNoPhoto": "未选择照片",
+  "mvSingerPromptLabel": "表演者描述",
+  "mvSingerPromptPh": "例：银色长发、黑色皮夹克的年轻女歌手，舞台聚光灯下",
+  "mvSingerHint": "照片或 AI 生成的形象会作为每段视频的参考图，保持全片人物一致；照片模式下描述可留空。",
+  "mvNeedPhoto": "请先上传歌手照片",
+  "mvNeedPrompt": "请填写表演者描述",
+  "mvStepReference": "参考图",
+  "artStoryboard": "分镜故事板",
+  "artSingerImage": "歌手形象"
 }

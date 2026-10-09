@@ -741,5 +741,19 @@
   "modelAdd": "Thêm mô hình",
   "modelInputHint": "Nhập trực tiếp hoặc bấm «Lấy mô hình» để thêm vào danh sách; loại bỏ trùng lặp khi lưu",
   "modelInputPlaceholder": "Nhập ID mô hình…",
-  "modelListLabel": "Danh sách mô hình"
+  "modelListLabel": "Danh sách mô hình",
+  "mvSingerSection": "Ca sĩ / Người biểu diễn",
+  "mvSingerNone": "Không dùng",
+  "mvSingerPhoto": "Dùng ảnh của tôi",
+  "mvSingerAi": "Tạo bằng AI",
+  "mvChoosePhoto": "Chọn ảnh",
+  "mvNoPhoto": "Chưa chọn ảnh",
+  "mvSingerPromptLabel": "Mô tả người biểu diễn",
+  "mvSingerPromptPh": "ví dụ: nữ ca sĩ trẻ tóc dài màu bạc, áo khoác da đen, dưới ánh đèn sân khấu",
+  "mvSingerHint": "Ảnh hoặc ảnh tạo bằng AI sẽ thành ảnh tham chiếu cho từng phân đoạn, giữ nhân vật nhất quán xuyên suốt video; ở chế độ dùng ảnh, mô tả có thể để trống.",
+  "mvNeedPhoto": "Hãy tải ảnh ca sĩ lên trước",
+  "mvNeedPrompt": "Nhập mô tả người biểu diễn",
+  "mvStepReference": "Ảnh tham chiếu",
+  "artStoryboard": "Bảng phân cảnh",
+  "artSingerImage": "Ảnh ca sĩ"
 }

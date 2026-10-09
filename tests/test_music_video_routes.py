@@ -234,3 +234,137 @@ class TestPipelineFactory:
 
         assert isinstance(pipe, mv.MusicVideoPipeline)
         assert pipe.task_id == "t-music"
+
+
+# ═══════════════════════════════════════════════════
+# v7.2 歌手/演员（none / photo / ai）
+# ═══════════════════════════════════════════════════
+
+def _files_with_photo(song_name="my song.mp3", song_bytes=_MP3,
+                      photo_name="face.png", photo_bytes=b"\x89PNG\r\n\x1a\nfakepng"):
+    files = {"song": (song_name, song_bytes, "audio/mpeg")}
+    if photo_name is not None:
+        files["singer_photo"] = (photo_name, photo_bytes, "image/png")
+    return files
+
+
+class TestSingerValidation:
+    """模式/描述/照片的纯校验与落盘回滚矩阵（PRD §5.7）。"""
+
+    def test_invalid_mode_returns_422(self, client, env):
+        resp = client.post(URL, files=_song(), data={"singer_mode": "banana"})
+        assert resp.status_code == 422
+        assert _uploaded_files(env["uploads"]) == []
+        assert env["launched"] == []
+
+    def test_ai_mode_without_prompt_returns_422(self, client, env):
+        resp = client.post(URL, files=_song(), data={"singer_mode": "ai"})
+        assert resp.status_code == 422
+        assert _uploaded_files(env["uploads"]) == []
+
+    def test_ai_mode_prompt_too_long_returns_422(self, client, env):
+        resp = client.post(
+            URL, files=_song(),
+            data={"singer_mode": "ai", "singer_prompt": "x" * 501},
+        )
+        assert resp.status_code == 422
+        assert _uploaded_files(env["uploads"]) == []
+
+    def test_photo_mode_without_file_returns_422(self, client, env):
+        resp = client.post(URL, files=_song(), data={"singer_mode": "photo"})
+        assert resp.status_code == 422
+        assert _uploaded_files(env["uploads"]) == []
+
+    def test_photo_with_non_image_extension_returns_422(self, client, env):
+        resp = client.post(
+            URL,
+            files=_files_with_photo(photo_name="face.txt"),
+            data={"singer_mode": "photo"},
+        )
+        assert resp.status_code == 422
+        # 扩展名纯校验在任何落盘之前 → 连歌曲都不应保存
+        assert _uploaded_files(env["uploads"]) == []
+
+    def test_photo_oversize_returns_413_and_cleans_partial(self, client, env, monkeypatch):
+        monkeypatch.setattr(task_creation_routes, "MAX_SINGER_PHOTO_BYTES", 1024)
+        resp = client.post(
+            URL,
+            files=_files_with_photo(photo_bytes=b"\x01" * 4096),
+            data={"singer_mode": "photo"},
+        )
+        assert resp.status_code == 413
+        assert _uploaded_files(env["uploads"]) == []
+        assert env["launched"] == []
+
+    def test_photo_empty_file_returns_422(self, client, env):
+        resp = client.post(
+            URL, files=_files_with_photo(photo_bytes=b""),
+            data={"singer_mode": "photo"},
+        )
+        assert resp.status_code == 422
+        assert _uploaded_files(env["uploads"]) == []
+
+    def test_song_oversize_with_photo_removes_photo(self, client, env, monkeypatch):
+        # 歌曲保存失败（413）→ 回滚已落盘照片
+        monkeypatch.setattr(task_creation_routes, "MAX_SONG_BYTES", 1024)
+        resp = client.post(
+            URL,
+            files=_files_with_photo(song_bytes=b"\x02" * 4096),
+            data={"singer_mode": "photo"},
+        )
+        assert resp.status_code == 413
+        assert _uploaded_files(env["uploads"]) == []
+
+    def test_duration_out_of_range_removes_song_and_photo(self, client, env):
+        env["probe"]["seconds"] = 400.0
+        resp = client.post(URL, files=_files_with_photo(), data={"singer_mode": "photo"})
+        assert resp.status_code == 422
+        assert _uploaded_files(env["uploads"]) == []
+        assert env["launched"] == []
+
+
+class TestSingerCreate:
+    def test_photo_mode_success_saves_fields_and_files(self, client, env):
+        resp = client.post(
+            URL, files=_files_with_photo(photo_name="../../avatar.jpg"),
+            data={"singer_mode": "photo", "singer_prompt": "  a jazz voice  "},
+        )
+        assert resp.status_code == 200
+
+        state = _StubTaskManager.last.state
+        assert state.singer_mode == "photo"
+        assert state.singer_prompt == "a jazz voice"  # strip 后落库
+        photo = state.singer_photo
+        assert os.path.dirname(photo) == env["uploads"]
+        name = os.path.basename(photo)
+        assert name.startswith("singer_") and name.endswith(".jpg")
+        assert os.path.exists(photo)
+        assert os.path.exists(state.song_file)
+        assert env["launched"] and env["factory"] == [TaskType.MUSIC_VIDEO]
+
+    def test_ai_mode_success_saves_prompt_without_photo(self, client, env):
+        resp = client.post(
+            URL, files=_song(),
+            data={"singer_mode": "ai", "singer_prompt": "silver hair, red jacket"},
+        )
+        assert resp.status_code == 200
+
+        state = _StubTaskManager.last.state
+        assert state.singer_mode == "ai"
+        assert state.singer_prompt == "silver hair, red jacket"
+        assert state.singer_photo == ""
+        # uploads 里只有歌曲
+        assert len(_uploaded_files(env["uploads"])) == 1
+
+    def test_default_mode_is_none(self, client, env):
+        resp = client.post(URL, files=_song(), data={})
+        assert resp.status_code == 200
+        state = _StubTaskManager.last.state
+        assert state.singer_mode == "none"
+        assert state.singer_prompt == ""
+        assert state.singer_photo == ""
+
+    def test_real_singer_limits(self):
+        assert task_creation_routes.MAX_SINGER_PHOTO_BYTES == 10 * 1024 * 1024
+        assert task_creation_routes.SINGER_PROMPT_MAX_CHARS == 500
+        assert ".webp" in task_creation_routes.SINGER_PHOTO_EXTS

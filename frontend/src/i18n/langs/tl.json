@@ -741,5 +741,19 @@
   "modelAdd": "Magdagdag ng modelo",
   "modelInputHint": "Mag-type nang direkta o i-click ang «Kunin ang Mga Modelo» para idagdag sa listahan; deduplicate kapag nagsave",
   "modelInputPlaceholder": "Maglagay ng model ID…",
-  "modelListLabel": "Listahan ng modelo"
+  "modelListLabel": "Listahan ng modelo",
+  "mvSingerSection": "Taga-awit / Performer",
+  "mvSingerNone": "Huwag gamitin",
+  "mvSingerPhoto": "Gamitin ang aking litrato",
+  "mvSingerAi": "I-generate gamit ang AI",
+  "mvChoosePhoto": "Pumili ng litrato",
+  "mvNoPhoto": "Walang napiling litrato",
+  "mvSingerPromptLabel": "Paglalarawan ng performer",
+  "mvSingerPromptPh": "hal. isang batang taga-awit na may mahabang pilaking buhok at itong leather jacket, sa ilalim ng stage spotlight",
+  "mvSingerHint": "Ang litrato o ang na-generate na larawan ang magiging reference ng bawat segment kaya pare-pareho ang karakter sa buong video; sa photo mode, maaaring walang laman ang paglalarawan.",
+  "mvNeedPhoto": "Mag-upload muna ng litrato ng taga-awit",
+  "mvNeedPrompt": "Ilagay ang paglalarawan ng performer",
+  "mvStepReference": "Reference image",
+  "artStoryboard": "Storyboard",
+  "artSingerImage": "Larawan ng taga-awit"
 }

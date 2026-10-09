@@ -741,5 +741,19 @@
   "modelAdd": "Ajouter un modèle",
   "modelInputHint": "Saisissez directement ou cliquez sur «Récupérer les modèles» pour les ajouter à la liste ; déduplication à l'enregistrement",
   "modelInputPlaceholder": "Saisissez un ID de modèle…",
-  "modelListLabel": "Liste des modèles"
+  "modelListLabel": "Liste des modèles",
+  "mvSingerSection": "Chanteur / Interprète",
+  "mvSingerNone": "Aucun",
+  "mvSingerPhoto": "Utiliser ma photo",
+  "mvSingerAi": "Générer par IA",
+  "mvChoosePhoto": "Choisir une photo",
+  "mvNoPhoto": "Aucune photo choisie",
+  "mvSingerPromptLabel": "Description de l'interprète",
+  "mvSingerPromptPh": "ex. : jeune chanteuse aux longs cheveux argentés et en cuir noir, sous les projecteurs",
+  "mvSingerHint": "La photo ou l'image générée par IA sert de référence à chaque segment, pour un personnage constant dans toute la vidéo ; en mode photo, la description peut rester vide.",
+  "mvNeedPhoto": "Veuillez d'abord téléverser une photo de l'interprète",
+  "mvNeedPrompt": "Veuillez saisir la description de l'interprète",
+  "mvStepReference": "Image de référence",
+  "artStoryboard": "Storyboard",
+  "artSingerImage": "Image de l'interprète"
 }

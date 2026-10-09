@@ -752,6 +752,30 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "zh": "按歌曲时长对齐各段画面并合成成片...",
         "en": "Aligning the clips to the song length and compositing the final video...",
     },
+    "progress.music_video.storyboard_done": {
+        "zh": "分镜故事板已生成（{n} 段，含歌词与画面）",
+        "en": "Storyboard generated ({n} segments with lyrics and visuals)",
+    },
+    "progress.music_video.singer_photo_running": {
+        "zh": "正在处理歌手照片并生成参考图...",
+        "en": "Processing the performer photo into a reference image...",
+    },
+    "progress.music_video.singer_ai_running": {
+        "zh": "正在用 AI 生成歌手/演员形象...",
+        "en": "Generating the performer image with AI...",
+    },
+    "progress.music_video.singer_done": {
+        "zh": "歌手参考图已就绪，将用于每一段视频",
+        "en": "Performer reference image ready; it will be used in every segment",
+    },
+    "progress.music_video.singer_failed": {
+        "zh": "歌手形象生成失败：{reason}",
+        "en": "Performer image generation failed: {reason}",
+    },
+    "progress.music_video.singer_photo_missing": {
+        "zh": "找不到已上传的歌手照片，无法继续",
+        "en": "The uploaded performer photo is missing; cannot continue",
+    },
     "progress.anchor.image_running": {
         "zh": "生成主播形象图...",
         "en": "Generating anchor image...",
@@ -905,6 +929,34 @@ CATALOG: Dict[str, Dict[str, str]] = {
     "validation.music_video_size_invalid": {
         "zh": "分辨率仅支持 1280×720（横屏）或 768×1152（竖屏）",
         "en": "Resolution must be 1280x720 (landscape) or 768x1152 (portrait)",
+    },
+    "validation.singer_mode_invalid": {
+        "zh": "无效的歌手模式：{current}（可选：none / photo / ai）",
+        "en": "Invalid performer mode: {current} (expected: none / photo / ai)",
+    },
+    "validation.singer_photo_required": {
+        "zh": "选择「使用我的照片」时必须上传歌手照片",
+        "en": "A performer photo is required when 'Use my photo' is selected",
+    },
+    "validation.singer_photo_format": {
+        "zh": "不支持的图片格式，仅支持：{exts}",
+        "en": "Unsupported image format. Supported formats: {exts}",
+    },
+    "validation.singer_photo_too_large": {
+        "zh": "歌手照片超过 {max_mb} MB 上限",
+        "en": "The performer photo exceeds the {max_mb} MB limit",
+    },
+    "validation.singer_photo_unreadable": {
+        "zh": "无法读取歌手照片（文件为空）",
+        "en": "Cannot read the performer photo (the file is empty)",
+    },
+    "validation.singer_prompt_required": {
+        "zh": "用 AI 生成歌手/演员时需填写表演者描述",
+        "en": "A performer description is required when generating the performer with AI",
+    },
+    "validation.singer_prompt_too_long": {
+        "zh": "表演者描述最多 {max} 个字符",
+        "en": "The performer description must be at most {max} characters",
     },
     "validation.user_scene_prompts_not_list": {
         "zh": "user_scene_prompts_json 必须为 JSON 数组",

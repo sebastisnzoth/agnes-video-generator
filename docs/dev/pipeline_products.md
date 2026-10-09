@@ -259,3 +259,22 @@ LLM 逐段画面描述 → 逐段 AI 视频（无声）→ 歌曲作为唯一音
 ### 续传
 - `scenes` 已存在时 `_build_scenes` 直接返回（不重新识别歌词、不重新生成提示词）。
 - 已完成的 `scene_{i}/video.mp4` 不重新提交；成片已存在时直接返回。
+
+### v7.2 增量：歌手/演员参考图 + 分镜故事板
+- **歌手模式**（`singer_mode`：`none` / `photo` / `ai`，默认 `none` 保持 v7.1 行为）：
+  - `photo`：用户照片（uploads/）经 `_stage_singer_photo`（EXIF 校正 → 最长边 ≤2048 → PNG）
+    转存为任务目录 `singer.png`；`ai`：`AgnesImageAPI.generate_single_image` 按
+    `singer_prompt` 生成 `singer.png`。两者在 Phase 2（`_build_reference_images`）执行，
+    文件已存在时跳过（断点续传）；失败 → 任务失败（不静默降级）。
+  - `_get_scene_ref_images` 对所有段返回同一张 `[singer.png]` → `submit_video` 走
+    ti2vid 分支（1 张参考图），保证全片人物一致；`none` 模式返回 `[]`（纯 t2v，同 v7.1）。
+- **分镜故事板**：`_build_scenes` 末尾写出 `storyboard.json`（时间跨度 + AI 歌词 +
+  LLM 画面描述 + 歌手元信息的**确定性组装**，不新增 LLM 调用）；`scenes` 已存在的
+  续传分支若缺失该文件则从 state 补写。产物清单只读（与 `lyrics_json` 同理，不入依赖图）。
+- **歌手感知分镜**：`generate_music_video_prompts(style, windows, performer="")` 注入
+  表演者描述（关键字参数；`performer` 为空时提示词与 v7.1 逐字节一致）；模板兜底
+  `_template_prompt` 同步接收。
+- **依赖图**：`singer_image → {video, final_video}`（替换参考图 → 级联清理段视频与成片
+  后重生成）；`storyboard` 无 product 边（只读）。
+- **产物**：`storyboard.json`（step `build_scenes`）、`singer.png`（step
+  `reference_images`，仅 photo/ai 模式）。
