@@ -741,5 +741,19 @@
   "modelAdd": "Model ekle",
   "modelInputHint": "Doğrudan yazın veya listeye eklemek için «Modelleri Getir»i tıklayın; kaydederken yinelenenler silinir",
   "modelInputPlaceholder": "Model kimliği girin…",
-  "modelListLabel": "Model listesi"
+  "modelListLabel": "Model listesi",
+  "mvSingerSection": "Şarkıcı / Yorumcu",
+  "mvSingerNone": "Kullanma",
+  "mvSingerPhoto": "Fotoğrafımı kullan",
+  "mvSingerAi": "AI ile oluştur",
+  "mvChoosePhoto": "Fotoğraf seç",
+  "mvNoPhoto": "Fotoğraf seçilmedi",
+  "mvSingerPromptLabel": "Yorumcu açıklaması",
+  "mvSingerPromptPh": "örn. gümüş uzun saçlı, siyah deri ceketli genç bir şarkıcı, sahne ışıkları altında",
+  "mvSingerHint": "Fotoğraf veya AI ile üretilen görsel her bölümün referansı olur; böylece karakter videonun genelinde aynı kalır. Fotoğraf modunda açıklama boş bırakılabilir.",
+  "mvNeedPhoto": "Önce şarkıcı fotoğrafını yükleyin",
+  "mvNeedPrompt": "Yorumcu açıklamasını girin",
+  "mvStepReference": "Referans görsel",
+  "artStoryboard": "Senaryo (storyboard)",
+  "artSingerImage": "Şarkıcı görseli"
 }

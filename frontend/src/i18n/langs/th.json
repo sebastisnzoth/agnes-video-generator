@@ -741,5 +741,19 @@
   "modelAdd": "เพิ่มโมเดล",
   "modelInputHint": "พิมพ์โดยตรงหรือคลิก «ดึงโมเดล» เพื่อเพิ่มลงในรายการ ระบบจะลบรายการซ้ำเมื่อบันทึก",
   "modelInputPlaceholder": "ป้อนรหัสโมเดล…",
-  "modelListLabel": "รายการโมเดล"
+  "modelListLabel": "รายการโมเดล",
+  "mvSingerSection": "นักร้อง / ผู้แสดง",
+  "mvSingerNone": "ไม่ใช้",
+  "mvSingerPhoto": "ใช้รูปของฉัน",
+  "mvSingerAi": "สร้างด้วย AI",
+  "mvChoosePhoto": "เลือกรูป",
+  "mvNoPhoto": "ยังไม่ได้เลือกรูป",
+  "mvSingerPromptLabel": "คำอธิบายผู้แสดง",
+  "mvSingerPromptPh": "เช่น นักร้องสาวผมยาวสีเงิน เสื้อหนังสีดำ ใต้ไฟสปอตไลต์บนเวที",
+  "mvSingerHint": "รูปหรือภาพที่สร้างด้วย AI จะเป็นภาพอ้างอิงของทุกช่วง ทำให้ตัวละครคงเดิมตลอดวิดีโอ ในโหมดรูปสามารถเว้นคำอธิบายไว้ได้",
+  "mvNeedPhoto": "อัปโหลดรูปนักร้องก่อน",
+  "mvNeedPrompt": "กรุณากรอกคำอธิบายผู้แสดง",
+  "mvStepReference": "รูปอ้างอิง",
+  "artStoryboard": "สตอรีบอร์ด",
+  "artSingerImage": "รูปนักร้อง"
 }

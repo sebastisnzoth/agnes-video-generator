@@ -230,11 +230,13 @@ def _poetry_artifact_defs() -> list[dict]:
 
 
 def _music_video_artifact_defs() -> list[dict]:
-    """Music video 模式的产物定义模板（v7.1）。
+    """Music video 模式的产物定义模板（v7.1，v7.2 增加故事板与歌手参考图）。
 
     场景级：scene_{i}/video.mp4（AI 生成的定长片段，附 task.json / curl.sh）；
     任务级：song.mp3（转码后的歌曲，即成片唯一音轨）、lyrics.json（歌词识别结果）、
-    full_subtitle.srt（歌词字幕，仅在开启字幕且识别成功时存在）、final_video.mp4。
+    full_subtitle.srt（歌词字幕，仅在开启字幕且识别成功时存在）、
+    storyboard.json（分镜故事板，v7.2）、singer.png（歌手/演员参考图，v7.2）、
+    final_video.mp4。
     """
     return [
         {"type": "video", "step_key": "video_gen", "label": "artVideo",
@@ -252,6 +254,12 @@ def _music_video_artifact_defs() -> list[dict]:
         {"type": "subtitle", "step_key": "subtitle", "label": "artSubtitle",
          "category": "subtitle", "scope": "task", "file": "full_subtitle.srt",
          "fields": ["combined_subtitle"]},
+        {"type": "storyboard", "step_key": "build_scenes", "label": "artStoryboard",
+         "category": "json", "scope": "task", "file": "storyboard.json",
+         "fields": []},
+        {"type": "singer_image", "step_key": "reference_images", "label": "artSingerImage",
+         "category": "image", "scope": "task", "file": "singer.png",
+         "fields": ["singer_image"]},
         {"type": "final_video", "step_key": "concatenate", "label": "artFinalVideo",
          "category": "video", "scope": "task", "file": "final_video.mp4",
          "fields": ["final_video_file"]},
@@ -336,6 +344,10 @@ _SCHEMA_HINTS = {
     "narration_audio": "诗词场景朗诵音频 MP3（scene_{i}/narration.mp3）。逐场景修改后重跑该场景字幕与成片。",
     "subtitle_srt": "诗词场景字幕 SRT（scene_{i}/subtitle.srt）。",
     "lyrics_json": "歌词识别结果 JSON（lyrics.json，只读参考）：lines[].start / end 为歌曲内秒数，text 为歌词行。修改不影响成片。",
+    "storyboard": ("分镜故事板 JSON（storyboard.json，只读参考，v7.2）：segments[].start/end 为时间跨度，"
+                   "lyrics 为该段 AI 识别歌词，visual 为 LLM 画面描述；singer 记录歌手模式与描述。修改不影响成片。"),
+    "singer_image": ("歌手/演员参考图 PNG（singer.png，v7.2）：每段视频 ti2vid 的参考。"
+                     "替换后需删除各段视频重新生成才能应用（级联计划会清理段视频）。"),
 }
 
 
@@ -837,6 +849,9 @@ _ARTIFACT_TO_CHECKPOINT_COARSE: dict[str, str] = {
     "anchor_image": "references",
     "clip_prompts": "scenes",
     "clip": "videos",
+    # v7.2 音乐视频：故事板属 scenes 检查点，歌手参考图属 references
+    "storyboard": "scenes",
+    "singer_image": "references",
 }
 
 # 检查点展示顺序（creative 细粒度；其余粗粒度）
@@ -961,6 +976,19 @@ def _checkpoint_to_step_field(checkpoint: str, state: BaseTaskState) -> Optional
     if isinstance(state, PoetryVideoTask):
         # 优化路线图 1.5c：此前缺 poetry 分支，poetry 检查点状态恒为 pending，
         # 级联删除的 approved_checkpoints 重置也因此失效。
+        mapping = {
+            "scenes": "step_build_scenes",
+            "references": "step_reference_images",
+            "videos": "step_video_generation",
+            "audio": "step_audio",
+            "subtitle": "step_subtitle",
+            "final": "step_concatenation",
+        }
+        return mapping.get(checkpoint)
+    if isinstance(state, MusicVideoTask):
+        # v7.2：补齐 music_video 分支（同 poetry 1.5c）——此前检查点状态恒为
+        # pending；music_video 无手动模式，仅影响检查点清单展示与级联 approved
+        # 重置（后者因 manual_config=None 恒为 no-op，行为安全）。
         mapping = {
             "scenes": "step_build_scenes",
             "references": "step_reference_images",

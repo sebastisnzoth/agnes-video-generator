@@ -75,6 +75,8 @@ def mock_image_api(monkeypatch):
         "core.api.agnes_image.AgnesImageAPI",
         "core.pipelines.creative.pipeline.AgnesImageAPI",
         "core.pipelines.anchor_video.AgnesImageAPI",
+        # v7.2：音乐视频 AI 歌手/演员参考图
+        "core.pipelines.music_video.AgnesImageAPI",
     ]
     for p in paths:
         monkeypatch.setattr(p, MockAgnesImageAPI)

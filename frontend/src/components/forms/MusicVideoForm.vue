@@ -7,6 +7,7 @@ import PresetPicker from '@/components/presets/PresetPicker.vue'
 
 // v7.1 音乐视频：上传歌曲 → 每 10 秒一段 AI 画面 → 以原曲为唯一音轨合成。
 // 无 TTS 配音、无手动暂停点；歌词由后端 faster-whisper 自动识别（失败则无字幕，任务照常完成）。
+// v7.2 歌手/演员：用户照片（参考图）或 AI 按描述生成；同时由歌词+画面组装分镜故事板。
 const { submitting, runSubmit } = useTaskSubmit()
 
 const form = reactive({
@@ -15,13 +16,22 @@ const form = reactive({
   resolution: '1280x720',
   lyrics: true,
   subtitle: true,
+  // v7.2 歌手模式：none | photo | ai
+  singerMode: 'none',
+  singerPrompt: '',
 })
 
 const songFile = ref<File | null>(null)
+const singerFile = ref<File | null>(null)
 
 function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   songFile.value = input.files?.[0] ?? null
+}
+
+function onSingerFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  singerFile.value = input.files?.[0] ?? null
 }
 
 function parseResolution(val: string) {
@@ -35,6 +45,9 @@ async function submitMusicVideo() {
     taskType: 'music_video',
     buildForm: () => {
       if (!songFile.value) throw new Error(t('mvNeedSong'))
+      // v7.2 歌手模式：photo 必须已选照片；ai 必须已填描述（none 跳过）
+      if (form.singerMode === 'photo' && !singerFile.value) throw new Error(t('mvNeedPhoto'))
+      if (form.singerMode === 'ai' && !form.singerPrompt.trim()) throw new Error(t('mvNeedPrompt'))
 
       const fd = new FormData()
       fd.append('song', songFile.value)
@@ -46,11 +59,18 @@ async function submitMusicVideo() {
       // 字幕即歌词字幕：关闭歌词识别时没有可烧录的内容，强制为 false
       fd.append('lyrics_enabled', String(form.lyrics))
       fd.append('subtitle_enabled', String(form.lyrics && form.subtitle))
+      // v7.2 歌手/演员
+      fd.append('singer_mode', form.singerMode)
+      fd.append('singer_prompt', form.singerPrompt.trim())
+      if (form.singerMode === 'photo' && singerFile.value) {
+        fd.append('singer_photo', singerFile.value)
+      }
 
       ev = {
         resolution: form.resolution,
         lyrics: form.lyrics ? 'on' : 'off',
         subtitle: form.lyrics && form.subtitle ? 'on' : 'off',
+        singer: form.singerMode,
       }
       return fd
     },
@@ -95,6 +115,50 @@ async function submitMusicVideo() {
       </div>
 
       <p class="text-xs text-muted">{{ t('mvClipHint') }}</p>
+    </div>
+
+    <!-- v7.2 歌手/演员：照片参考图或 AI 生成（影响每段视频的人物一致性） -->
+    <div class="glass-card rounded-2xl p-6 mb-4">
+      <h2 class="text-lg font-semibold text-accent mb-4">{{ t('mvSingerSection') }}</h2>
+
+      <div class="flex flex-wrap items-center gap-4 mb-3">
+        <label class="flex items-center gap-2 text-sm text-ink-2 cursor-pointer">
+          <input v-model="form.singerMode" type="radio" value="none" class="bg-paper-2 border-rule" />
+          <span>{{ t('mvSingerNone') }}</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm text-ink-2 cursor-pointer">
+          <input v-model="form.singerMode" type="radio" value="photo" class="bg-paper-2 border-rule" />
+          <span>{{ t('mvSingerPhoto') }}</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm text-ink-2 cursor-pointer">
+          <input v-model="form.singerMode" type="radio" value="ai" class="bg-paper-2 border-rule" />
+          <span>{{ t('mvSingerAi') }}</span>
+        </label>
+      </div>
+
+      <div v-if="form.singerMode === 'photo'" class="flex flex-wrap items-center gap-3 mb-3">
+        <label class="cursor-pointer px-4 py-2.5 rounded-lg text-sm font-medium bg-accent/15 text-accent hover:bg-accent/25 transition">
+          {{ t('mvChoosePhoto') }}
+          <input type="file" accept="image/*" class="sr-only" @change="onSingerFileChange" />
+        </label>
+        <span class="text-sm text-ink-2 truncate max-w-full">{{ singerFile ? singerFile.name : t('mvNoPhoto') }}</span>
+      </div>
+
+      <div v-if="form.singerMode !== 'none'" class="mb-3">
+        <label class="block text-sm text-muted mb-1.5">
+          {{ t('mvSingerPromptLabel') }}
+          <span v-if="form.singerMode === 'ai'" class="text-red-400">*</span>
+        </label>
+        <textarea
+          v-model="form.singerPrompt"
+          rows="2"
+          maxlength="500"
+          :placeholder="t('mvSingerPromptPh')"
+          class="w-full glass-input rounded-lg px-4 py-2.5 text-sm text-ink placeholder-muted resize-y"
+        ></textarea>
+      </div>
+
+      <p class="text-xs text-muted">{{ t('mvSingerHint') }}</p>
     </div>
 
     <!-- Lyrics & subtitles（无 TTS 配音，故不使用 SubtitleConfig） -->

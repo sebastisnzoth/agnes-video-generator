@@ -591,6 +591,40 @@ class TestMusicVideoPipeline(BasePipelineTest):
         assert state.lyric_lines == []
         assert not os.path.exists(os.path.join(temp_workdir, "full_subtitle.srt"))
 
+    @pytest.mark.asyncio
+    async def test_music_video_ai_singer_and_storyboard(self, temp_workdir):
+        """v7.2：AI 歌手参考图 singer.png + 分镜故事板 storyboard.json（任务完成）。"""
+        import json as _json
+
+        from core.audio.lyrics import LyricLine
+        from core.pipelines.music_video import MusicVideoPipeline
+
+        lines = [LyricLine(1.0, 4.0, "mock lyric one")]
+        state = self._make_state(self._make_song(temp_workdir))
+        state.singer_mode = "ai"
+        state.singer_prompt = "a silver-haired singer on stage"
+
+        with patch("core.pipelines.music_video.transcribe_lyrics", return_value=lines):
+            await self._run_and_verify(MusicVideoPipeline, state, temp_workdir,
+                                       verify_prompts=True)
+
+        # Phase 2：AI 生成的歌手参考图（mock t2i 写出的 PNG）
+        singer = os.path.join(temp_workdir, "singer.png")
+        assert os.path.getsize(singer) > 0
+        assert state.singer_image == singer
+
+        # Phase 1：storyboard.json 组装歌词 + 画面 + 歌手元信息
+        with open(os.path.join(temp_workdir, "storyboard.json"), encoding="utf-8") as f:
+            sb = _json.load(f)
+        assert sb["singer"] == {
+            "mode": "ai",
+            "description": "a silver-haired singer on stage",
+            "image": "singer.png",
+        }
+        assert len(sb["segments"]) == 3
+        assert sb["segments"][0]["lyrics"] == "mock lyric one"
+        assert all(s["visual"] for s in sb["segments"])
+
 
 class TestPoetryScenePrompt(BasePipelineTest):
     """诗歌分镜提示词：每场景时长表达 + 与程序内 LLM 提示词一致。"""

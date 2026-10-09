@@ -741,5 +741,19 @@
   "modelAdd": "Agregar modelo",
   "modelInputHint": "Escriba directamente o haga clic en «Obtener modelos» para agregarlos a la lista; se deduplican al guardar",
   "modelInputPlaceholder": "Introduzca un ID de modelo…",
-  "modelListLabel": "Lista de modelos"
+  "modelListLabel": "Lista de modelos",
+  "mvSingerSection": "Cantante / Intérprete",
+  "mvSingerNone": "No usar",
+  "mvSingerPhoto": "Usar mi foto",
+  "mvSingerAi": "Generar con IA",
+  "mvChoosePhoto": "Elegir foto",
+  "mvNoPhoto": "Ninguna foto elegida",
+  "mvSingerPromptLabel": "Descripción del intérprete",
+  "mvSingerPromptPh": "p. ej. cantante joven de cabello plateado largo y chaqueta de cuero negra, bajo los focos del escenario",
+  "mvSingerHint": "La foto o la imagen generada por IA se usa como referencia en cada segmento, manteniendo el mismo personaje en todo el video; en modo foto la descripción puede quedar vacía.",
+  "mvNeedPhoto": "Sube primero una foto del cantante",
+  "mvNeedPrompt": "Escribe la descripción del intérprete",
+  "mvStepReference": "Imagen de referencia",
+  "artStoryboard": "Guion gráfico (storyboard)",
+  "artSingerImage": "Imagen del cantante"
 }

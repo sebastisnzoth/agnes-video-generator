@@ -741,5 +741,19 @@
   "modelAdd": "モデルを追加",
   "modelInputHint": "直接入力するか「モデルを取得」をクリックしてリストに追加できます（保存時に重複を除去）",
   "modelInputPlaceholder": "モデルIDを入力…",
-  "modelListLabel": "モデルリスト"
+  "modelListLabel": "モデルリスト",
+  "mvSingerSection": "歌手 / 演者",
+  "mvSingerNone": "使わない",
+  "mvSingerPhoto": "自分の写真を使う",
+  "mvSingerAi": "AIで生成",
+  "mvChoosePhoto": "写真を選択",
+  "mvNoPhoto": "写真未選択",
+  "mvSingerPromptLabel": "演者の説明",
+  "mvSingerPromptPh": "例：銀色のロングヘアに黒い革ジャンの若い歌手、ステージのスポットライトの下",
+  "mvSingerHint": "写真またはAI生成画像が各セグメントの参照画像になり、動画全体で同じ人物を維持します。写真モードでは説明は空欄でも構いません。",
+  "mvNeedPhoto": "まず歌手の写真をアップロードしてください",
+  "mvNeedPrompt": "演者の説明を入力してください",
+  "mvStepReference": "参照画像",
+  "artStoryboard": "ストーリーボード",
+  "artSingerImage": "歌手画像"
 }

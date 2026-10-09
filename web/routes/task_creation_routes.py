@@ -236,6 +236,62 @@ async def _save_song_upload(upload: UploadFile, upload_dir: str) -> str:
     return upload_path
 
 
+# ── 歌手/演员照片（音乐视频 v7.2）────────────────────────────────
+SINGER_PHOTO_EXTS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"})
+MAX_SINGER_PHOTO_BYTES = 10 * 1024 * 1024
+SINGER_PROMPT_MAX_CHARS = 500
+_SINGER_MODES = frozenset({"none", "photo", "ai"})
+
+
+async def _save_singer_photo_upload(upload: UploadFile, upload_dir: str) -> str:
+    """分块保存歌手照片上传（音乐视频 v7.2），返回落盘路径。
+
+    与 ``_save_song_upload`` 同构：扩展名图片白名单 → 422；累计超过 10 MB →
+    413 并删除半成品；空文件 → 422（``singer_photo_unreadable``）；UUID 文件名 +
+    ``safe_join`` 锚定。请求级回滚（连带歌曲）由调用方负责。
+    """
+    ext = os.path.splitext(upload.filename or "")[1].lower()
+    if ext not in SINGER_PHOTO_EXTS:
+        raise HTTPException(
+            status_code=422,
+            detail=translate(
+                "validation.singer_photo_format", None,
+                exts=", ".join(sorted(SINGER_PHOTO_EXTS)),
+            ),
+        )
+    os.makedirs(upload_dir, exist_ok=True)
+    upload_path = safe_join(upload_dir, f"singer_{uuid.uuid4().hex}{ext}")
+
+    total = 0
+    try:
+        async with await async_open(upload_path, "wb") as f:
+            while True:
+                chunk = await upload.read(_SONG_CHUNK_BYTES)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_SINGER_PHOTO_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=translate(
+                            "validation.singer_photo_too_large", None,
+                            max_mb=MAX_SINGER_PHOTO_BYTES // (1024 * 1024),
+                        ),
+                    )
+                await f.write(chunk)
+    except BaseException:
+        _unlink_quietly(upload_path)
+        raise
+
+    if total == 0:
+        _unlink_quietly(upload_path)
+        raise HTTPException(
+            status_code=422,
+            detail=translate("validation.singer_photo_unreadable", None),
+        )
+    return upload_path
+
+
 @router.post("/api/tasks/simple")
 async def create_simple_task(
     prompt: str = Form(...),
@@ -742,11 +798,17 @@ async def create_music_video_task(
     # 歌词识别（faster-whisper 自动转写）：失败时任务仍完成，只是没有字幕
     lyrics_enabled: bool = Form(True),
     subtitle_enabled: bool = Form(True),
+    # v7.2 歌手/演员：none（无）/ photo（用户照片）/ ai（文字描述生成）
+    singer_mode: str = Form("none"),
+    singer_prompt: str = Form(""),
+    singer_photo: Optional[UploadFile] = File(None),
 ):
-    """创建音乐视频任务（类型 7 / v7.1）。
+    """创建音乐视频任务（类型 7 / v7.1，v7.2 增加歌手参考图）。
 
     上传歌曲（≤50 MB，10–300 秒）→ 按 10 秒分段生成画面 → 以歌曲本身为音轨合成成片。
-    校验顺序与 system_design §4.1 一致：API Key → 分辨率 → 扩展名/大小（分块读取）→ 时长。
+    校验顺序（v7.2，PRD §3.2）：API Key → 分辨率 → 歌手模式/描述/照片（纯校验，
+    落盘前）→ 歌曲存在 → 保存照片 → 保存歌曲 → 时长。任何后续失败回滚已落盘的
+    照片与歌曲。
     """
     api_key = get_api_key()
     if not api_key:
@@ -757,24 +819,76 @@ async def create_music_video_task(
             status_code=422,
             detail=translate("validation.music_video_size_invalid", None),
         )
+
+    # ── 纯校验（任何文件落盘之前）─────────────────────────────
+    if singer_mode not in _SINGER_MODES:
+        raise HTTPException(
+            status_code=422,
+            detail=translate("validation.singer_mode_invalid", None, current=singer_mode),
+        )
+    singer_prompt = (singer_prompt or "").strip()
+    if len(singer_prompt) > SINGER_PROMPT_MAX_CHARS:
+        raise HTTPException(
+            status_code=422,
+            detail=translate(
+                "validation.singer_prompt_too_long", None, max=SINGER_PROMPT_MAX_CHARS,
+            ),
+        )
+    if singer_mode == "ai" and not singer_prompt:
+        raise HTTPException(
+            status_code=422,
+            detail=translate("validation.singer_prompt_required", None),
+        )
+    if singer_mode == "photo":
+        if singer_photo is None or not singer_photo.filename:
+            raise HTTPException(
+                status_code=422,
+                detail=translate("validation.singer_photo_required", None),
+            )
+        photo_ext = os.path.splitext(singer_photo.filename)[1].lower()
+        if photo_ext not in SINGER_PHOTO_EXTS:
+            raise HTTPException(
+                status_code=422,
+                detail=translate(
+                    "validation.singer_photo_format", None,
+                    exts=", ".join(sorted(SINGER_PHOTO_EXTS)),
+                ),
+            )
     if song is None or not song.filename:
         raise HTTPException(
             status_code=422,
             detail=translate("validation.song_missing", None),
         )
 
-    song_path = await _save_song_upload(song, helpers.get_upload_dir())
+    # ── 落盘（先照片后歌曲，后续失败互为回滚对象）───────────────
+    singer_photo_path = ""
+    if singer_mode == "photo":
+        singer_photo_path = await _save_singer_photo_upload(
+            singer_photo, helpers.get_upload_dir(),
+        )
+
+    try:
+        song_path = await _save_song_upload(song, helpers.get_upload_dir())
+    except BaseException:
+        # 歌曲保存失败（413/422/中断）→ 回滚已落盘照片（PRD §6 清理矩阵）
+        if singer_photo_path:
+            _unlink_quietly(singer_photo_path)
+        raise
 
     # 时长探测：ffprobe / ffmpeg 解析失败时返回 0（不抛异常），按不可读处理
     duration = await asyncio.to_thread(probe_duration, song_path)
     if duration <= 0:
         _unlink_quietly(song_path)
+        if singer_photo_path:
+            _unlink_quietly(singer_photo_path)
         raise HTTPException(
             status_code=422,
             detail=translate("validation.song_unreadable", None),
         )
     if duration < MIN_SONG_SECONDS or duration > MAX_SONG_SECONDS:
         _unlink_quietly(song_path)
+        if singer_photo_path:
+            _unlink_quietly(singer_photo_path)
         raise HTTPException(
             status_code=422,
             detail=translate(
@@ -801,6 +915,10 @@ async def create_music_video_task(
         video_width=video_width,
         video_height=video_height,
         subtitle_config=SubtitleConfig(enabled=subtitle_enabled, style=MUSIC_SUBTITLE_STYLE),
+        # v7.2 歌手/演员（source photo 路径保留在 state，Phase 2 转存进任务目录）
+        singer_mode=singer_mode,
+        singer_prompt=singer_prompt,
+        singer_photo=singer_photo_path,
         # v7.0（issue #64）：任务级 UI 语言快照
         ui_language=get_current_lang(),
     )
@@ -812,8 +930,10 @@ async def create_music_video_task(
     tm.create(state)
     deps.mark_task_queued(tm, lang=state.ui_language)
     app_state.launch_background_task(deps.run_pipeline_with_concurrency(pipeline, state, tm))
-    logger.info("[MusicVideo] Task created: %s, song=%r, %.1fs (queued)",
-                safe_log(task_id), safe_log(display_name), duration)
+    logger.info(
+        "[MusicVideo] Task created: %s, song=%r, %.1fs, singer_mode=%s (queued)",
+        safe_log(task_id), safe_log(display_name), duration, safe_log(singer_mode),
+    )
     return {"ok": True, "task_id": task_id, "dir_name": dir_name}
 
 

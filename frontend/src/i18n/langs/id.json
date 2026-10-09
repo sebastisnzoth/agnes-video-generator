@@ -741,5 +741,19 @@
   "modelAdd": "Tambah model",
   "modelInputHint": "Ketik langsung atau klik «Ambil Model» untuk menambahkannya ke daftar; dideduplikasi saat disimpan",
   "modelInputPlaceholder": "Masukkan ID model…",
-  "modelListLabel": "Daftar model"
+  "modelListLabel": "Daftar model",
+  "mvSingerSection": "Penyanyi / Pemeran",
+  "mvSingerNone": "Tidak pakai",
+  "mvSingerPhoto": "Gunakan foto saya",
+  "mvSingerAi": "Hasilkan dengan AI",
+  "mvChoosePhoto": "Pilih foto",
+  "mvNoPhoto": "Belum ada foto dipilih",
+  "mvSingerPromptLabel": "Deskripsi performer",
+  "mvSingerPromptPh": "mis. penyanyi muda berambut panjang perak dan jaket kulit hitam, di bawah lampu panggung",
+  "mvSingerHint": "Foto atau gambar hasil AI menjadi referensi untuk setiap segmen sehingga karakternya konsisten sepanjang video; pada mode foto, deskripsi boleh dikosongkan.",
+  "mvNeedPhoto": "Unggah dulu foto penyanyi",
+  "mvNeedPrompt": "Isi deskripsi performer",
+  "mvStepReference": "Gambar referensi",
+  "artStoryboard": "Storyboard",
+  "artSingerImage": "Gambar penyanyi"
 }

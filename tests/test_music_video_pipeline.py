@@ -388,6 +388,292 @@ class TestVideoResume:
         assert os.path.exists(tmp_path / "scene_2" / "video.mp4")
 
 
+class TestSingerAndStoryboard:
+    """v7.2 歌手/演员参考图（none/photo/ai）与分镜故事板 storyboard.json。"""
+
+    @staticmethod
+    def _png_photo(tmp_path):
+        from PIL import Image
+
+        src = tmp_path / "uploads" / "face.png"
+        src.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (64, 48), (200, 30, 30)).save(src, "PNG")
+        return str(src)
+
+    @staticmethod
+    def _img_api(*, fail=False, prompt_recorder=None):
+        """图片 API 替身：generate_single_image(prompt=, size=) → save(dst) 写字节。"""
+        api = mock.MagicMock()
+
+        async def _gen(**kwargs):
+            if prompt_recorder is not None:
+                prompt_recorder.append(kwargs)
+            if fail:
+                raise RuntimeError("image api down")
+
+            class _Out:
+                async def save(self, dst):
+                    with open(dst, "wb") as f:
+                        f.write(b"\x89PNG\r\n\x1a\nfake-bytes")
+
+            return _Out()
+
+        api.generate_single_image = mock.AsyncMock(side_effect=_gen)
+        return api
+
+    # ── Phase 2：_build_reference_images ──────────────────────────
+
+    def test_none_mode_is_noop_without_image_api(self, tmp_path):
+        state = _state(tmp_path)
+        pipe = _make_pipeline(tmp_path, state)
+        # none 模式不得触碰 image_generator（_make_pipeline 未注入该属性）
+        asyncio.run(pipe._build_reference_images())
+
+        assert state.singer_image == ""
+        assert not (tmp_path / "singer.png").exists()
+
+    def test_photo_mode_stages_png_into_working_dir(self, tmp_path):
+        state = _state(tmp_path)
+        state.singer_mode = "photo"
+        state.singer_photo = self._png_photo(tmp_path)
+        pipe = _make_pipeline(tmp_path, state)
+
+        asyncio.run(pipe._build_reference_images())
+
+        dst = tmp_path / "singer.png"
+        assert dst.exists() and dst.read_bytes().startswith(b"\x89PNG")
+        assert state.singer_image == str(dst)
+        assert ("state", {"singer_image": str(dst)}) in pipe.task_manager.calls
+
+    def test_photo_mode_missing_source_fails_task(self, tmp_path):
+        state = _state(tmp_path)
+        state.singer_mode = "photo"
+        state.singer_photo = str(tmp_path / "uploads" / "gone.png")
+        pipe = _make_pipeline(tmp_path, state)
+
+        with pytest.raises(RuntimeError, match="找不到|missing"):
+            asyncio.run(pipe._build_reference_images())
+
+    def test_photo_mode_invalid_bytes_fails_task(self, tmp_path):
+        state = _state(tmp_path)
+        state.singer_mode = "photo"
+        src = tmp_path / "uploads" / "bad.png"
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(b"not-an-image")
+        state.singer_photo = str(src)
+        pipe = _make_pipeline(tmp_path, state)
+
+        with pytest.raises(RuntimeError):
+            asyncio.run(pipe._build_reference_images())
+        assert not (tmp_path / "singer.png").exists()
+
+    def test_ai_mode_generates_image_via_api(self, tmp_path):
+        state = _state(tmp_path)
+        state.singer_mode = "ai"
+        state.singer_prompt = "a rock star with a red guitar"
+        calls = []
+        pipe = _make_pipeline(tmp_path, state)
+        pipe.image_generator = self._img_api(prompt_recorder=calls)
+
+        asyncio.run(pipe._build_reference_images())
+
+        assert calls == [{
+            "prompt": "a rock star with a red guitar",
+            "size": f"{state.video_width}x{state.video_height}",
+        }]
+        dst = tmp_path / "singer.png"
+        assert dst.exists() and dst.stat().st_size > 0
+        assert state.singer_image == str(dst)
+
+    def test_ai_mode_api_failure_fails_task(self, tmp_path):
+        state = _state(tmp_path)
+        state.singer_mode = "ai"
+        state.singer_prompt = "x"
+        pipe = _make_pipeline(tmp_path, state)
+        pipe.image_generator = self._img_api(fail=True)
+
+        with pytest.raises(RuntimeError, match="失败|failed"):
+            asyncio.run(pipe._build_reference_images())
+        assert not (tmp_path / "singer.png").exists()
+
+    def test_existing_singer_image_skips_regeneration(self, tmp_path):
+        state = _state(tmp_path)
+        state.singer_mode = "ai"
+        state.singer_prompt = "x"
+        (tmp_path / "singer.png").write_bytes(b"\x89PNG\r\n\x1a\npreexisting")
+        pipe = _make_pipeline(tmp_path, state)
+        pipe.image_generator = mock.MagicMock()
+        pipe.image_generator.generate_single_image = mock.AsyncMock(
+            side_effect=AssertionError("must not be called on resume"),
+        )
+
+        asyncio.run(pipe._build_reference_images())
+
+        assert state.singer_image == str(tmp_path / "singer.png")
+        pipe.image_generator.generate_single_image.assert_not_called()
+
+    # ── Phase 3：_get_scene_ref_images → 每段提交携带参考图 ────────
+
+    def test_get_scene_ref_images_states(self, tmp_path):
+        state = _state(tmp_path)
+        pipe = _make_pipeline(tmp_path, state)
+        assert pipe._get_scene_ref_images(None, 0) == []
+
+        existing = tmp_path / "singer.png"
+        existing.write_bytes(b"\x89PNG")
+        state.singer_image = str(existing)
+        assert pipe._get_scene_ref_images(None, 0) == [str(existing)]
+
+        state.singer_image = str(tmp_path / "gone.png")
+        assert pipe._get_scene_ref_images(None, 0) == []
+
+    def test_generate_videos_passes_reference_image_paths(self, tmp_path):
+        state = _state(tmp_path)
+        state.scenes = [SceneTask(index=0, scene_prompt="a", duration=10)]
+        state.scene_spans = [[0.0, 10.0]]
+        singer = tmp_path / "singer.png"
+        singer.write_bytes(b"\x89PNG")
+        state.singer_image = str(singer)
+
+        submitted = []
+
+        async def fake_submit(**kwargs):
+            submitted.append(kwargs)
+            return "vid-1"
+
+        video_api = mock.MagicMock()
+        video_api.submit_video = mock.AsyncMock(side_effect=fake_submit)
+        video_api.wait_for_video = mock.AsyncMock(
+            side_effect=lambda vid: _FakeClipOutput(4.0),
+        )
+        pipe = _make_pipeline(tmp_path, state, video_api=video_api)
+
+        asyncio.run(pipe._generate_videos())
+
+        assert len(submitted) == 1
+        assert submitted[0]["reference_image_paths"] == [str(singer)]
+
+    # ── Phase 1：storyboard.json ──────────────────────────────────
+
+    def test_build_scenes_writes_storyboard(self, tmp_path, song_env, monkeypatch):
+        song_env["duration"] = 25.0
+        lines = [LyricLine(1.0, 4.0, "第一行"), LyricLine(11.0, 14.0, "第二行")]
+        _stub_lyrics(monkeypatch, lines=lines)
+        sw = _writer(prompts=["p0", "p1", "p2"])
+        pipe = _make_pipeline(tmp_path, _state(tmp_path), screenwriter=sw)
+
+        asyncio.run(pipe._build_scenes())
+
+        sb = json.loads((tmp_path / "storyboard.json").read_text(encoding="utf-8"))
+        assert sb["format_version"] == "1.0"
+        assert sb["song"] == {"name": "song.mp3", "duration": 25.0}
+        assert sb["prompt_source"] == "llm"
+        assert sb["singer"] == {"mode": "none", "description": "", "image": None}
+        assert len(sb["segments"]) == 3
+        assert sb["segments"][0] == {
+            "index": 0, "start": 0.0, "end": 10.0,
+            "lyrics": "第一行", "visual": "p0",
+        }
+        # 无歌词段 → instrumental 占位
+        assert sb["segments"][2]["lyrics"] == mv.INSTRUMENTAL_TAG
+        assert [s["visual"] for s in sb["segments"]] == ["p0", "p1", "p2"]
+
+    def test_build_scenes_storyboard_records_singer(self, tmp_path, song_env, monkeypatch):
+        song_env["duration"] = 25.0
+        _stub_lyrics(monkeypatch, lines=[])
+        state = _state(tmp_path)
+        state.singer_mode = "ai"
+        state.singer_prompt = "a silver-haired singer"
+        pipe = _make_pipeline(tmp_path, state, screenwriter=_writer(prompts=["a", "b", "c"]))
+
+        asyncio.run(pipe._build_scenes())
+
+        sb = json.loads((tmp_path / "storyboard.json").read_text(encoding="utf-8"))
+        assert sb["singer"] == {
+            "mode": "ai",
+            "description": "a silver-haired singer",
+            "image": "singer.png",
+        }
+
+    def test_resume_backfills_missing_storyboard_from_state(self, tmp_path, song_env, monkeypatch):
+        state = _state(tmp_path)
+        state.scenes = [SceneTask(index=0, scene_prompt="pa", duration=10)]
+        state.scene_spans = [[0.0, 10.0]]
+        state.lyric_lines = [{"start": 1.0, "end": 2.0, "text": "hi"}]
+        (tmp_path / "prompts.json").write_text(
+            json.dumps({"prompt_source": "template"}), encoding="utf-8",
+        )
+        pipe = _make_pipeline(tmp_path, state, screenwriter=_writer())
+
+        asyncio.run(pipe._build_scenes())  # scenes 存在 → SKIP 分支 + 补写
+
+        sb = json.loads((tmp_path / "storyboard.json").read_text(encoding="utf-8"))
+        assert sb["prompt_source"] == "template"
+        assert sb["segments"] == [{
+            "index": 0, "start": 0.0, "end": 10.0, "lyrics": "hi", "visual": "pa",
+        }]
+        pipe.screenwriter.generate_music_video_prompts.assert_not_called()
+
+    # ── performer 注入（LLM 感知歌手）──────────────────────────────
+
+    def test_performer_kwarg_none_mode_is_empty(self, tmp_path, song_env, monkeypatch):
+        _stub_lyrics(monkeypatch, lines=[])
+        sw = _writer(prompts=["a", "b", "c"])
+        pipe = _make_pipeline(tmp_path, _state(tmp_path), screenwriter=sw)
+
+        asyncio.run(pipe._build_scenes())
+
+        style, windows = sw.generate_music_video_prompts.call_args[0]
+        assert style == mv.DEFAULT_MUSIC_VIDEO_STYLE
+        assert sw.generate_music_video_prompts.call_args.kwargs.get("performer") == ""
+
+    def test_performer_kwarg_uses_singer_prompt(self, tmp_path, song_env, monkeypatch):
+        _stub_lyrics(monkeypatch, lines=[])
+        state = _state(tmp_path)
+        state.singer_mode = "ai"
+        state.singer_prompt = "a cyberpunk diva"
+        sw = _writer(prompts=["a", "b", "c"])
+        pipe = _make_pipeline(tmp_path, state, screenwriter=sw)
+
+        asyncio.run(pipe._build_scenes())
+
+        assert sw.generate_music_video_prompts.call_args.kwargs["performer"] == "a cyberpunk diva"
+
+    def test_resolve_performer_text_modes(self, tmp_path):
+        state = _state(tmp_path)
+        pipe = _make_pipeline(tmp_path, state)
+        assert pipe._resolve_performer_text() == ""
+
+        state.singer_mode = "photo"
+        assert pipe._resolve_performer_text() == mv._PERFORMER_FROM_REFERENCE
+        state.singer_prompt = "  custom desc  "
+        assert pipe._resolve_performer_text() == "custom desc"
+
+        state.singer_mode = "ai"
+        state.singer_prompt = ""
+        assert pipe._resolve_performer_text() == mv._PERFORMER_GENERIC
+
+    def test_template_prompt_with_and_without_performer(self):
+        old = MusicVideoPipeline._template_prompt("neon city", 1, 4)
+        assert old == "neon city, segment 2 of 4, no on-screen text"
+        new = MusicVideoPipeline._template_prompt("neon city", 1, 4, "a singer")
+        assert new == "neon city, a singer, segment 2 of 4, no on-screen text"
+
+    def test_template_fallback_embeds_performer(self, tmp_path, song_env, monkeypatch):
+        _stub_lyrics(monkeypatch, lines=[])
+        state = _state(tmp_path)
+        state.singer_mode = "ai"
+        state.singer_prompt = "a jazz singer"
+        sw = _writer(error=ValueError("no llm"))
+        pipe = _make_pipeline(tmp_path, state, screenwriter=sw)
+
+        asyncio.run(pipe._build_scenes())
+
+        assert all("a jazz singer" in s.scene_prompt for s in state.scenes)
+        sb = json.loads((tmp_path / "storyboard.json").read_text(encoding="utf-8"))
+        assert sb["prompt_source"] == "template"
+
+
 class TestAudioAndSubtitles:
     def test_audio_step_transcodes_song_without_tts(self, tmp_path, song_env, monkeypatch):
         pipe = _make_pipeline(tmp_path, _state(tmp_path))

@@ -492,6 +492,12 @@ class MusicVideoTask(BaseTaskState):
     scene_spans: List[List[float]] = Field(default_factory=list)
     scenes: List[SceneTask] = Field(default_factory=list)
 
+    # v7.2：歌手/演员（每段视频的参考图）+ 分镜故事板（storyboard.json 为固定文件名，不占字段）
+    singer_mode: str = "none"   # none | photo | ai（Pydantic 默认值保证旧 task_state.json 兼容）
+    singer_photo: str = ""      # 用户照片落盘路径（uploads/，仅 photo 模式）
+    singer_prompt: str = ""     # 表演者描述（ai 模式必填；photo 模式可选）
+    singer_image: str = ""      # 任务目录内参考图（working_dir/singer.png，Phase 2 写入）
+
     # MultiScene 模板方法步骤字段
     step_build_scenes: StepStatus = StepStatus.PENDING
     step_reference_images: StepStatus = StepStatus.PENDING

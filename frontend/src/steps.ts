@@ -46,6 +46,7 @@ export const STEPS: Record<string, StepDef[]> = {
   ],
   music_video: [
     { key: 'build_scenes', labelKey: 'mvStepBuildScenes' },
+    { key: 'reference_images', labelKey: 'mvStepReference' },
     { key: 'video_generation', labelKey: 'pStepVideoGen' },
     { key: 'audio', labelKey: 'mvStepAudio' },
     { key: 'subtitle', labelKey: 'pStepSubtitle' },
@@ -94,6 +95,7 @@ export const STEP_FIELD_MAP: Record<string, Record<string, string>> = {
   },
   music_video: {
     build_scenes: 'step_build_scenes',
+    reference_images: 'step_reference_images',
     video_generation: 'step_video_generation',
     audio: 'step_audio',
     subtitle: 'step_subtitle',

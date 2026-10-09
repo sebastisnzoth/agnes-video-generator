@@ -741,5 +741,19 @@
   "modelAdd": "Modell hinzufügen",
   "modelInputHint": "Direkt eingeben oder «Modelle abrufen» klicken, um sie in die Liste zu übernehmen; beim Speichern werden Duplikate entfernt",
   "modelInputPlaceholder": "Modell-ID eingeben…",
-  "modelListLabel": "Modellliste"
+  "modelListLabel": "Modellliste",
+  "mvSingerSection": "Sänger / Darsteller",
+  "mvSingerNone": "Keine",
+  "mvSingerPhoto": "Mein Foto verwenden",
+  "mvSingerAi": "Mit KI generieren",
+  "mvChoosePhoto": "Foto auswählen",
+  "mvNoPhoto": "Kein Foto ausgewählt",
+  "mvSingerPromptLabel": "Beschreibung des Darstellers",
+  "mvSingerPromptPh": "z. B. eine junge Sängerin mit langen Silberhaaren und schwarzer Lederjacke im Bühnenspotlight",
+  "mvSingerHint": "Das Foto oder KI-generierte Bild wird die Referenz für jedes Segment und sorgt für eine einheitliche Figur im gesamten Video; im Fotomodus darf die Beschreibung leer bleiben.",
+  "mvNeedPhoto": "Bitte zuerst ein Foto des Sängers hochladen",
+  "mvNeedPrompt": "Bitte die Beschreibung des Darstellers eingeben",
+  "mvStepReference": "Referenzbild",
+  "artStoryboard": "Storyboard",
+  "artSingerImage": "Sängerbild"
 }

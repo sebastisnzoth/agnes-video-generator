@@ -27,6 +27,25 @@ def test_checkpoint_to_step_field_poetry_mapping():
     assert _checkpoint_to_step_field("unknown", state) is None
 
 
+def test_checkpoint_to_step_field_music_video_mapping():
+    """v7.2：music_video 检查点映射（此前缺分支恒为 None，同 poetry 1.5c 问题）。"""
+    from core.artifacts import _checkpoint_to_step_field
+    from models.task import MusicVideoTask
+
+    state = MusicVideoTask(task_id="t_mv", creative_name="mv", song_name="s.mp3")
+    mapping = {
+        "scenes": "step_build_scenes",
+        "references": "step_reference_images",
+        "videos": "step_video_generation",
+        "audio": "step_audio",
+        "subtitle": "step_subtitle",
+        "final": "step_concatenation",
+    }
+    for cp, field in mapping.items():
+        assert _checkpoint_to_step_field(cp, state) == field
+    assert _checkpoint_to_step_field("unknown", state) is None
+
+
 # ── 1.5b error_logs 数量轮转 ────────────────────────────────────────
 
 

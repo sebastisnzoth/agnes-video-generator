@@ -128,8 +128,8 @@ def test_get_steps_for_state_all_types():
 def test_get_artifact_defs_all_types():
     assert len(_get_artifact_defs(_creative())) > 0
     assert len(_get_artifact_defs(_manuscript())) > 0
-    # 音乐视频：视频 / 歌曲音频 / 歌词 JSON / 字幕 / 成片
-    assert len(_get_artifact_defs(_music())) == 5
+    # 音乐视频：视频 / 歌曲音频 / 歌词 JSON / 字幕 / 分镜故事板 / 歌手参考图 / 成片（v7.2 → 7）
+    assert len(_get_artifact_defs(_music())) == 7
     # model 模式无音频/字幕/最终视频，产物数少于 post_stitch
     assert len(_get_artifact_defs(_anchor("model"))) < len(
         _get_artifact_defs(_anchor("post_stitch"))

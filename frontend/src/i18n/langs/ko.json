@@ -741,5 +741,19 @@
   "modelAdd": "모델 추가",
   "modelInputHint": "직접 입력하거나 «모델 가져오기»를 클릭해 목록에 추가할 수 있으며 저장 시 중복이 제거됩니다",
   "modelInputPlaceholder": "모델 ID 입력…",
-  "modelListLabel": "모델 목록"
+  "modelListLabel": "모델 목록",
+  "mvSingerSection": "가수 / 출연자",
+  "mvSingerNone": "사용 안 함",
+  "mvSingerPhoto": "내 사진 사용",
+  "mvSingerAi": "AI로 생성",
+  "mvChoosePhoto": "사진 선택",
+  "mvNoPhoto": "사진 선택 안 됨",
+  "mvSingerPromptLabel": "출연자 설명",
+  "mvSingerPromptPh": "예: 은색 롱헤어에 검은 가죽 재킷을 입은 젊은 가수, 무대 조명 아래",
+  "mvSingerHint": "사진 또는 AI로 생성한 이미지가 각 세그먼트의 참조 이미지가 되어 영상 전체에서 인물을 일관되게 유지합니다. 사진 모드에서는 설명을 비워둘 수 있습니다.",
+  "mvNeedPhoto": "먼저 가수 사진을 업로드하세요",
+  "mvNeedPrompt": "출연자 설명을 입력하세요",
+  "mvStepReference": "참조 이미지",
+  "artStoryboard": "스토리보드",
+  "artSingerImage": "가수 이미지"
 }
