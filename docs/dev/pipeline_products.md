@@ -16,6 +16,7 @@
 | ManuscriptVideoPipeline | `manuscript` | LLM 逐段分镜（稿件→段落） | 用户稿件原文（分段） | ✅ cue 对齐 | ✅ |
 | AnchorVideoPipeline | `anchor` | 数字人视频（用户读稿） | 用户读稿（script_text） | ✅ cue 对齐 | 单段 |
 | PoetryVideoPipeline | `poetry` | LLM 拆诗分镜（原诗→场景） | LLM 拆诗原句（清洗后） | ✅ 逐场景 cue | ✅ |
+| MusicVideoPipeline | `music_video` | LLM 逐段画面描述（按歌词窗口）；失败用模板 | ❌ 无 TTS（歌曲即音轨） | ✅ 歌词 SRT（识别成功时） | ✅ 按 10 秒分段 |
 | SimpleVideoPipeline | `simple` | 文生/图生视频（用户 prompt） | ❌ 无 | ❌ 无 | ❌ |
 
 > `MultiScenePipeline`（`core/pipelines/multi_scene.py`）是**多场景共用基类**，
@@ -228,3 +229,33 @@ creative / manuscript / anchor / multi_scene / poetry（逐场景）。
 - `tests/test_narration_cleaning.py` + `tests/test_cue_aware_srt.py`：19 项单测全绿。
 - 真实污染串（`鞋择其主` prompts.json）经 `clean_narration_text` 正确清空（触发回退）。
 - 端到端：提交全新创意任务 `4dcc33b5077f` 验证（后台运行中，确认旁白 SRT 为纯文本且走 cue 路径）。
+
+
+---
+
+## 8. MusicVideoPipeline（`music_video`，v7.1）
+
+**流程**：用户歌曲 → 转码为 `song.mp3` → 探测时长 → 歌词识别（可选，faster-whisper）→ 按 10 秒切段 →
+LLM 逐段画面描述 → 逐段 AI 视频（无声）→ 歌曲作为唯一音轨合成 → 水印。
+
+### 视频 Prompt
+- 逐段 `scene_prompt`：`screenwriter.generate_music_video_prompts(style, windows)`，窗口文本为该段时间跨度内的歌词行（无歌词时标注为伴奏）。
+- LLM 失败或条数不符 → `_template_prompt` 补齐；`prompts.json.prompt_source` 取值 `llm` / `partial` / `template`。
+
+### 旁白内容
+- 不生成旁白，**不调用 TTS**。`scene.narration_text` 仅保存该段歌词，用于展示与产物，不驱动配音。
+- `_generate_audio` 只做歌曲转码，`combined_audio` 指向 `song.mp3`，即成片唯一音轨（音量 1.0，不放大）。
+
+### 字幕
+- 歌词识别成功 → `lyrics.json`（全部歌词行，只读参考）+ `lyrics.srt`。
+- 开启字幕且存在歌词行 → 复制为 `full_subtitle.srt` 并烧录（`MUSIC_SUBTITLE_STYLE`）。
+- 识别失败、伴奏或字幕关闭 → 不生成字幕文件，任务照常完成。
+
+### 分段与合成
+- 段数 `N = ceil(T / 10)`：前 N−1 段各 10 秒，末段为余数；请求时长 `max(3, ceil(跨度))`。
+- `build_timed_video_track`：一次 ffmpeg 滤镜图完成逐段 trim / pad / concat（无声时间轴）。
+- `concat_videos_with_audio_overlay(..., audio_volume=1.0)`：叠加歌曲与字幕，成片时长 ≈ 歌曲时长。
+
+### 续传
+- `scenes` 已存在时 `_build_scenes` 直接返回（不重新识别歌词、不重新生成提示词）。
+- 已完成的 `scene_{i}/video.mp4` 不重新提交；成片已存在时直接返回。

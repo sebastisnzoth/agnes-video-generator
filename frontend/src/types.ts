@@ -1,6 +1,6 @@
 // 与后端 models/task.py 对齐的类型定义（仅前端需要的字段）
 
-export type TaskType = 'simple' | 'creative' | 'manuscript' | 'anchor' | 'poetry' | 'image'
+export type TaskType = 'simple' | 'creative' | 'manuscript' | 'anchor' | 'poetry' | 'image' | 'music_video'
 
 export interface TaskState {
   task_id: string

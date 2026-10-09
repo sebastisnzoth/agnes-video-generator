@@ -27,6 +27,7 @@ from models.task import (
     BaseTaskState,
     CreativeVideoTask,
     ManuscriptVideoTask,
+    MusicVideoTask,
     PoetryVideoTask,
     StepStatus,
 )
@@ -117,6 +118,16 @@ _ANCHOR_STEPS_MODEL = [
 
 # Poetry 步骤序列（v6.0 P3：与 multi_scene 模板方法步骤对齐）
 _POETRY_STEPS = [
+    ("step_build_scenes", "build_scenes"),
+    ("step_reference_images", "reference_images"),
+    ("step_video_generation", "video_gen"),
+    ("step_audio", "audio"),
+    ("step_subtitle", "subtitle"),
+    ("step_concatenation", "concatenate"),
+]
+
+# Music video 步骤序列（v7.1：与 multi_scene 模板方法对齐；音频步骤仅转码，无 TTS）
+_MUSIC_VIDEO_STEPS = [
     ("step_build_scenes", "build_scenes"),
     ("step_reference_images", "reference_images"),
     ("step_video_generation", "video_gen"),
@@ -218,6 +229,35 @@ def _poetry_artifact_defs() -> list[dict]:
     ]
 
 
+def _music_video_artifact_defs() -> list[dict]:
+    """Music video 模式的产物定义模板（v7.1）。
+
+    场景级：scene_{i}/video.mp4（AI 生成的定长片段，附 task.json / curl.sh）；
+    任务级：song.mp3（转码后的歌曲，即成片唯一音轨）、lyrics.json（歌词识别结果）、
+    full_subtitle.srt（歌词字幕，仅在开启字幕且识别成功时存在）、final_video.mp4。
+    """
+    return [
+        {"type": "video", "step_key": "video_gen", "label": "artVideo",
+         "category": "video", "scope": "scene", "file": "scene_{i}/video.mp4",
+         "scene_fields": ["video_file", "video_id"],
+         "extra_files": ["scene_{i}/task.json", "scene_{i}/curl.sh"],
+         "schema_hint": "分段 AI 视频 MP4（无声）。合成时按歌曲分段精确裁剪或补帧，时长以分段跨度为准。"},
+        {"type": "audio", "step_key": "audio", "label": "artSong",
+         "category": "audio", "scope": "task", "file": "song.mp3",
+         "fields": ["combined_audio"],
+         "schema_hint": "用户歌曲转码后的 MP3，即成片唯一音轨（不做 TTS，不放大音量）。"},
+        {"type": "lyrics_json", "step_key": "build_scenes", "label": "artLyrics",
+         "category": "json", "scope": "task", "file": "lyrics.json",
+         "fields": []},
+        {"type": "subtitle", "step_key": "subtitle", "label": "artSubtitle",
+         "category": "subtitle", "scope": "task", "file": "full_subtitle.srt",
+         "fields": ["combined_subtitle"]},
+        {"type": "final_video", "step_key": "concatenate", "label": "artFinalVideo",
+         "category": "video", "scope": "task", "file": "final_video.mp4",
+         "fields": ["final_video_file"]},
+    ]
+
+
 def _anchor_artifact_defs(is_model_mode: bool) -> list[dict]:
     """Anchor 模式的产物定义模板。"""
     artifacts = [
@@ -265,6 +305,8 @@ def _get_steps_for_state(state: BaseTaskState) -> list[tuple[Optional[str], str]
         return _ANCHOR_STEPS_POST_STITCH
     elif isinstance(state, PoetryVideoTask):
         return _POETRY_STEPS
+    elif isinstance(state, MusicVideoTask):
+        return _MUSIC_VIDEO_STEPS
     return []
 
 
@@ -293,12 +335,13 @@ _SCHEMA_HINTS = {
     "clip": "数字人循环视频 MP4。",
     "narration_audio": "诗词场景朗诵音频 MP3（scene_{i}/narration.mp3）。逐场景修改后重跑该场景字幕与成片。",
     "subtitle_srt": "诗词场景字幕 SRT（scene_{i}/subtitle.srt）。",
+    "lyrics_json": "歌词识别结果 JSON（lyrics.json，只读参考）：lines[].start / end 为歌曲内秒数，text 为歌词行。修改不影响成片。",
 }
 
 
 def _schema_hint_for(d: dict) -> str:
-    """取产物定义的 schema_hint，缺省回退空串。"""
-    return _SCHEMA_HINTS.get(d.get("type", ""), "")
+    """取产物定义的 schema_hint：定义内显式给出时优先（如音乐视频的歌曲音频），否则按 type 查表，缺省空串。"""
+    return d.get("schema_hint") or _SCHEMA_HINTS.get(d.get("type", ""), "")
 
 
 def _get_artifact_defs(state: BaseTaskState) -> list[dict]:
@@ -311,6 +354,8 @@ def _get_artifact_defs(state: BaseTaskState) -> list[dict]:
         return _anchor_artifact_defs(state.audio_source == "model")
     elif isinstance(state, PoetryVideoTask):
         return _poetry_artifact_defs()
+    elif isinstance(state, MusicVideoTask):
+        return _music_video_artifact_defs()
     return []
 
 
@@ -365,7 +410,7 @@ def list_artifacts(state: BaseTaskState, task_dir: str) -> list[ArtifactDescript
         scope_count = len(state.paragraphs)
     elif isinstance(state, AnchorVideoTask):
         scope_count = len(state.paragraphs) if state.paragraphs else 0
-    elif isinstance(state, PoetryVideoTask):
+    elif isinstance(state, (PoetryVideoTask, MusicVideoTask)):
         scope_count = len(state.scenes)
     else:
         scope_count = 0

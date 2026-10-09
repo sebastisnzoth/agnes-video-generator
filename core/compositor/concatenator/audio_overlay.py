@@ -48,6 +48,18 @@ def _subtitle_ass_enabled() -> bool:
     return _enabled()
 
 
+# TTS 音频默认增益：edge_tts 输出偏低，叠加时统一放大 1.5 倍（AGENTS.md §6.6）。
+# 音乐等已是正常响度的音轨由调用方传 audio_volume=1.0，避免削波。
+_TTS_AUDIO_VOLUME = 1.5
+
+
+def _volume_filter(volume: float) -> str:
+    """返回 ``,volume=N`` 滤镜片段；增益为 1.0 时返回空串（不加滤镜）。"""
+    if abs(float(volume) - 1.0) < 1e-9:
+        return ""
+    return f",volume={float(volume):g}"
+
+
 class AudioOverlayMixin:
     """音频叠加拼接与数字人合成方法，v5.0 Batch 4（4.3）拆分。"""
 
@@ -59,6 +71,7 @@ class AudioOverlayMixin:
         output_path: str,
         subtitle_style: Optional[SubtitleStyle] = None,
         subtitle_styles_path: Optional[str] = None,
+        audio_volume: float = _TTS_AUDIO_VOLUME,
     ) -> str:
         """先拼接视频，再统一叠加单条音频 + 单条字幕。
 
@@ -70,6 +83,8 @@ class AudioOverlayMixin:
             srt_path: 整段 SRT 字幕路径（可选）。
             output_path: 最终输出文件路径。
             subtitle_style: 字幕样式配置。
+            audio_volume: 音频增益倍数。默认 1.5 补偿 edge_tts 低音量；
+                音乐等已是正常响度的音轨应传 1.0（v7.1 音乐视频）。
 
         Returns:
             输出文件路径。
@@ -114,6 +129,7 @@ class AudioOverlayMixin:
                 result = AudioOverlayMixin._ffmpeg_mux_aligned(
                     silent_path, audio_path, output_path, final_dur,
                     subtitle_ass_path=ass_path, fonts_dir=fonts_dir,
+                    audio_volume=audio_volume,
                 )
                 # fast path 自行清理拼接中间产物（原 finally 不经过此分支）
                 if os.path.exists(silent_path):
@@ -151,6 +167,7 @@ class AudioOverlayMixin:
 
         # ── Step 4: 若音频 < 视频，补齐静音 ──
         audio_input = audio_path
+        vol_filter = _volume_filter(audio_volume)
         if audio_dur < final_dur - 0.3:
             apad_path = audio_path.replace(".mp3", "_apad.mp3")
             tmp_files.append(apad_path)
@@ -158,23 +175,23 @@ class AudioOverlayMixin:
             VideoConcatenator._run_ffmpeg(
                 [resolve_binary("ffmpeg"), "-y",
                  "-i", audio_path,
-                 "-af", f"apad=pad_dur={pad_dur:.2f},volume=1.5",
+                 "-af", f"apad=pad_dur={pad_dur:.2f}{vol_filter}",
                  "-c:a", "libmp3lame", "-q:a", "2",
                  apad_path],
-                desc=f"pad audio by {pad_dur:.1f}s + volume 1.5x",
+                desc=f"pad audio by {pad_dur:.1f}s + volume {audio_volume:g}x",
             )
             audio_input = apad_path
-        else:
-            # 只做音量放大
+        elif vol_filter:
+            # 只做音量放大（音量 1.0 时无需重编码，直接使用原音频）
             vol_path = audio_path.replace(".mp3", "_vol.mp3")
             tmp_files.append(vol_path)
             VideoConcatenator._run_ffmpeg(
                 [resolve_binary("ffmpeg"), "-y",
                  "-i", audio_path,
-                 "-af", "volume=1.5",
+                 "-af", vol_filter.lstrip(","),
                  "-c:a", "libmp3lame", "-q:a", "2",
                  vol_path],
-                desc="boost audio volume 1.5x",
+                desc=f"boost audio volume {audio_volume:g}x",
             )
             audio_input = vol_path
 
@@ -270,12 +287,13 @@ class AudioOverlayMixin:
     def _ffmpeg_mux_aligned(
         silent_path: str, audio_path: str, output_path: str, final_dur: float,
         subtitle_ass_path: Optional[str] = None, fonts_dir: Optional[str] = None,
+        audio_volume: float = _TTS_AUDIO_VOLUME,
     ) -> str:
         """2.1b/2.1c：视频+音频（+字幕）在一条 ffmpeg filter 链中完成对齐与合成（一次编码）。
 
         - 视频不足 ``final_dur`` → ``tpad stop_mode=clone`` 冻结尾帧补齐
         - 音频不足 ``final_dur`` → ``apad=whole_dur`` 补静音 + ``volume=1.5``
-          补偿 edge_tts 默认低音量（与既有语义一致）
+          补偿 edge_tts 默认低音量（与既有语义一致；``audio_volume=1.0`` 时不加增益）
         - 传入 ``subtitle_ass_path`` 时追加 ``subtitles`` 滤镜烧录 ASS 字幕（2.1c）
         - ``-t final_dur`` 强制截断对齐
 
@@ -296,7 +314,7 @@ class AudioOverlayMixin:
             "-i", silent_path,
             "-i", audio_path,
             "-filter_complex",
-            f"{v_chain};[1:a]apad=whole_dur={final_dur:.2f},volume=1.5[a]",
+            f"{v_chain};[1:a]apad=whole_dur={final_dur:.2f}{_volume_filter(audio_volume)}[a]",
             "-map", "[v]", "-map", "[a]",
             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "fast",
             "-c:a", _AUDIO_CODEC, "-b:a", _AUDIO_BITRATE,

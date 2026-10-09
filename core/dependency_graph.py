@@ -27,7 +27,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Optional
 
-from models.task import BaseTaskState, CreativeVideoTask, PoetryVideoTask, TaskType
+from models.task import BaseTaskState, CreativeVideoTask, MusicVideoTask, PoetryVideoTask, TaskType
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +108,13 @@ _PRODUCT_EDGES: dict[str, dict[str, set[str]]] = {
         T_AUDIO: {T_SUBTITLE, T_FINAL_VIDEO},
         T_SUBTITLE: {T_FINAL_VIDEO},
     },
+    # 音乐视频（v7.1）：歌曲与歌词由用户/识别给定，不走 LLM 分镜链路；
+    # 改单段视频只影响成片；改歌曲音轨或字幕影响成片（歌词 JSON 只读，不入图）
+    TaskType.MUSIC_VIDEO.value: {
+        f"{T_VIDEO}:{_ANY}": {T_FINAL_VIDEO},
+        T_AUDIO: {T_FINAL_VIDEO},
+        T_SUBTITLE: {T_FINAL_VIDEO},
+    },
 }
 
 
@@ -145,6 +152,12 @@ _PARAM_EDGES: dict[str, dict[str, set[str]]] = {
         "video_width": {T_VIDEO, T_AUDIO, T_SUBTITLE, T_FINAL_VIDEO},
         "video_height": {T_VIDEO, T_AUDIO, T_SUBTITLE, T_FINAL_VIDEO},
         "audio_voice": {T_AUDIO, T_SUBTITLE, T_FINAL_VIDEO},
+    },
+    TaskType.MUSIC_VIDEO.value: {
+        # 分辨率变化只影响视频片段与成片；歌曲音轨与字幕不随分辨率变化
+        "resolution": {T_VIDEO, T_FINAL_VIDEO},
+        "video_width": {T_VIDEO, T_FINAL_VIDEO},
+        "video_height": {T_VIDEO, T_FINAL_VIDEO},
     },
 }
 
@@ -409,7 +422,9 @@ class DependencyGraph:
 
     def _is_scoped(self, base_type: str, state: BaseTaskState) -> bool:
         """判断产物是否为场景级。"""
-        if base_type == T_VIDEO and self.task_type in (TaskType.CREATIVE, TaskType.MANUSCRIPT, TaskType.POETRY):
+        if base_type == T_VIDEO and self.task_type in (
+            TaskType.CREATIVE, TaskType.MANUSCRIPT, TaskType.POETRY, TaskType.MUSIC_VIDEO,
+        ):
             return True
         if base_type == T_END_FRAME and self.task_type == TaskType.CREATIVE:
             return True
@@ -431,7 +446,7 @@ class DependencyGraph:
     def _scope_count(self, state: BaseTaskState) -> int:
         if isinstance(state, CreativeVideoTask):
             return len(state.scenes)
-        if isinstance(state, PoetryVideoTask):
+        if isinstance(state, (PoetryVideoTask, MusicVideoTask)):
             return len(state.scenes)
         # Manuscript / Anchor 用 paragraphs；Anchor 单段
         return len(getattr(state, "paragraphs", []) or [])

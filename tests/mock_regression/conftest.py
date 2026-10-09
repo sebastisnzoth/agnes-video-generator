@@ -62,6 +62,7 @@ def mock_video_api(monkeypatch):
         "core.pipelines.manuscript_video.AgnesVideoAPI",
         "core.pipelines.anchor_video.AgnesVideoAPI",
         "core.pipelines.poetry_video.AgnesVideoAPI",
+        "core.pipelines.music_video.AgnesVideoAPI",
     ]
     for p in paths:
         monkeypatch.setattr(p, MockAgnesVideoAPI)

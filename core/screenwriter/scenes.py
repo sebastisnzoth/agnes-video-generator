@@ -336,3 +336,44 @@ Night rain, wind sounds... | Rain on window, petals on stone""",
                 continue
             scenes.append({"narration": verse, "scene_prompt": prompt})
         return scenes
+
+    def generate_music_video_prompts(self, style: str, windows: List[str]) -> List[str]:
+        """为音乐视频的每个时间段生成一条画面描述（v7.1）。
+
+        Args:
+            style: 视觉风格文本（调用方已保证非空）。
+            windows: 每段对应的歌词窗口文本；无歌词的段落传 ``instrumental``。
+
+        Returns:
+            画面描述列表，最多 ``len(windows)`` 条；条数不足由调用方用模板补齐。
+
+        Raises:
+            ValueError: 输出无法解析为 ``{"prompts": [...]}`` 或没有任何有效条目。
+        """
+        n = len(windows)
+        if n == 0:
+            return []
+        system_prompt = (
+            "You are a music video director. For each numbered time segment of a song, "
+            "write ONE concrete visual scene for an AI video generator: subject, camera, "
+            "lighting, color palette and motion. Never ask for on-screen text, captions, "
+            "logos or lyrics. Keep each description under 60 words. "
+            "Return ONLY a JSON object of the form {\"prompts\": [\"...\"]} with exactly one "
+            "item per segment, in segment order."
+        )
+        segment_lines = "\n".join(f"{i}. {w}" for i, w in enumerate(windows, start=1))
+        user_prompt = (
+            f"Visual style: {style}\n"
+            f"Number of segments: {n}\n"
+            "Lyrics for each segment ('instrumental' means no vocals):\n"
+            f"{segment_lines}"
+        )
+        logger.info(f"[Screenwriter] Music video prompts for {n} segments...")
+        data = self._chat_json(system_prompt, user_prompt)
+        raw = data.get("prompts") if isinstance(data, dict) else None
+        if not isinstance(raw, list):
+            raise ValueError("music video prompts: missing 'prompts' list")
+        cleaned = [str(p).strip() for p in raw if str(p).strip()]
+        if not cleaned:
+            raise ValueError("music video prompts: no usable prompt")
+        return cleaned[:n]

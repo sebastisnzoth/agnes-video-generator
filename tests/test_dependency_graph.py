@@ -38,6 +38,15 @@ def _make_manuscript_state(paragraph_count: int = 2):
     return state
 
 
+def _make_music_state(scene_count: int = 3):
+    """构造 music_video 任务状态（v7.1：分段数可配）。"""
+    from models.task import MusicVideoTask, SceneTask, TaskType
+
+    state = MusicVideoTask(task_id="t", creative_name="t", task_type=TaskType.MUSIC_VIDEO)
+    state.scenes = [SceneTask(index=i, scene_prompt=f"p{i}", duration=10) for i in range(scene_count)]
+    return state
+
+
 class TestCreativeFieldLevel:
     """字段级粒度：同一产物的不同字段影响不同下游。"""
 
@@ -300,6 +309,56 @@ class TestManuscript:
         assert "manuscript:audio" in plan.affected
         assert "manuscript:subtitle" in plan.affected
         assert "manuscript:video:0" in plan.retained
+
+
+class TestMusicVideo:
+    """music_video 任务类型（v7.1）：歌曲音频与歌词字幕只影响成片。"""
+
+    def test_scene_video_affects_only_final_video(self):
+        from core.dependency_graph import get_dependency_graph
+        from models.task import TaskType
+
+        state = _make_music_state(3)
+        graph = get_dependency_graph(TaskType.MUSIC_VIDEO)
+        plan = graph.compute_impact(state, ["music_video:video:1"])
+
+        assert plan.affected == ["music_video:final_video", "music_video:video:1"]
+        assert "music_video:video:0" in plan.retained
+        assert "music_video:audio" in plan.retained
+
+    def test_audio_and_subtitle_only_affect_final_video(self):
+        from core.dependency_graph import get_dependency_graph
+        from models.task import TaskType
+
+        state = _make_music_state(2)
+        graph = get_dependency_graph(TaskType.MUSIC_VIDEO)
+        for modified in ("music_video:audio", "music_video:subtitle"):
+            plan = graph.compute_impact(state, [modified])
+            assert "music_video:final_video" in plan.affected
+            assert not any(a.startswith("music_video:video") for a in plan.affected)
+
+    def test_lyrics_json_is_read_only_reference(self):
+        from core.dependency_graph import get_dependency_graph
+        from models.task import TaskType
+
+        state = _make_music_state(2)
+        plan = get_dependency_graph(TaskType.MUSIC_VIDEO).compute_impact(
+            state, ["music_video:lyrics_json"],
+        )
+        assert plan.affected == []
+
+    def test_resolution_change_keeps_song_and_subtitles(self):
+        from core.dependency_graph import get_dependency_graph
+        from models.task import TaskType
+
+        state = _make_music_state(2)
+        plan = get_dependency_graph(TaskType.MUSIC_VIDEO).compute_impact(
+            state, [], param_updates={"video_width": 768},
+        )
+        assert "music_video:video:0" in plan.affected
+        assert "music_video:final_video" in plan.affected
+        assert "music_video:audio" not in plan.affected
+        assert "music_video:subtitle" not in plan.affected
 
 
 class TestArtifactsCheckpoint:

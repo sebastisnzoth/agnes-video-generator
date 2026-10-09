@@ -28,6 +28,7 @@ const SUBMIT_APIS: Record<string, (fd: FormData) => Promise<any>> = {
   manuscript: (fd) => api.submitManuscript(fd),
   anchor: (fd) => api.submitAnchor(fd),
   poetry: (fd) => api.submitPoetry(fd),
+  music_video: (fd) => api.submitMusicVideo(fd),
 }
 
 /**

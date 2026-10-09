@@ -35,3 +35,10 @@ Pillow>=9.0.0                   # 图片归一化（optimization_roadmap §2，u
 # 显式声明后，npm 包（bin/cli.js）与 Docker 均能在无宿主机 ffmpeg 时一键拿到二进制，
 # 用户无需另行安装系统级 ffmpeg。此前仅靠 moviepy 的传递依赖隐式引入，存在断裂风险。
 imageio-ffmpeg>=0.2.0,<1.0.0
+
+# v7.1 音乐视频：歌词自动识别（faster-whisper = CTranslate2 版 Whisper，CPU int8 推理，
+# 不依赖 PyTorch）。缺失或模型不可用时歌词识别降级为无字幕（core/audio/lyrics.py），任务照常完成。
+faster-whisper>=1.2.0,<2.0.0
+# av（PyAV）上限 17：av 19.x 仅发布 cp312 wheel、17.x 仅 cp311，16.x 覆盖 cp311/312/313，
+# 避免在无 wheel 的解释器上从源码编译 ffmpeg 绑定。
+av>=16.0.0,<17.0.0

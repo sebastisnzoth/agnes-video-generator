@@ -51,6 +51,7 @@ Commands:
   creative     仅测试 CreativeVideo pipeline
   manuscript   仅测试 ManuscriptVideo pipeline
   anchor       仅测试 AnchorVideo pipeline
+  music        仅测试 MusicVideo pipeline（v7.1）
   resume       仅测试断点续传场景
   clean        清理所有测试生成的数据和报告（保留预制素材和 fixture）
   clean-all    清理所有测试数据 + 预制素材 + 报告
@@ -171,6 +172,7 @@ run_tests() {
     manuscript) pytest_args+=(-k "TestManuscriptVideoPipeline") ;;
     anchor)   pytest_args+=(-k "TestAnchorVideoPipeline") ;;
     poetry)   pytest_args+=(-k "TestPoetryVideoPipeline") ;;
+    music)    pytest_args+=(-k "TestMusicVideoPipeline") ;;
     resume)   pytest_args+=(-k "TestPipelineResume") ;;
     *)        log_warn "未知过滤: $filter，执行全部";;
   esac
