@@ -11,7 +11,11 @@ from typing import List, Optional
 import srt as srt_lib
 from moviepy import VideoFileClip, concatenate_videoclips
 
-from core.compositor.ffmpeg_tool import resolve_binary
+from core.compositor.ffmpeg_tool import (
+    probe_duration,
+    probe_video_signature,
+    resolve_binary,
+)
 from models.task import SubtitleStyle
 
 logger = logging.getLogger(__name__)
@@ -112,17 +116,18 @@ class ConcatMixin:
         """
         try:
             # 探针：所有片段 width,height,avg_frame_rate 必须一致
+            # 走 ffmpeg_tool 的三级兜底（ffprobe → ffmpeg -i）：无 ffprobe 的
+            # 环境（Docker）此前会把 None 塞进命令列表，TypeError 被吞掉后
+            # 静默丢失整条快路径，永远回退 moviepy 全量重编码。
             sigs = set()
             for p in video_paths:
-                r = subprocess.run(
-                    [resolve_binary("ffprobe"), "-v", "error", "-select_streams", "v:0",
-                     "-show_entries", "stream=width,height,avg_frame_rate",
-                     "-of", "csv=s=x:p=0", p],
-                    stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15,
-                )
-                if r.returncode != 0 or not r.stdout.strip():
+                w, h, fps = probe_video_signature(p)
+                if not (w and h and fps):
+                    logger.info(
+                        f"[Compositor] ffmpeg copy concat skipped: 无法探测片段签名 {p}"
+                    )
                     return False
-                sigs.add(r.stdout.strip())
+                sigs.add((w, h, fps))
             if len(sigs) != 1:
                 logger.info(
                     f"[Compositor] ffmpeg copy concat skipped: 片段分辨率/帧率不一致 "
@@ -381,17 +386,15 @@ class ConcatMixin:
 
     @staticmethod
     def _get_duration(path: str) -> float:
-        """用 ffprobe 获取媒体文件时长（秒）。"""
-        try:
-            r = subprocess.run(
-                [resolve_binary("ffprobe"), "-v", "error", "-show_entries", "format=duration",
-                 "-of", "csv=p=0", path],
-                stdin=subprocess.DEVNULL,
-                capture_output=True, text=True, timeout=15,
-            )
-            return float(r.stdout.strip())
-        except Exception:
-            return 0.0
+        """获取媒体文件时长（秒）；探测不到时返回 0.0。
+
+        改走 :func:`core.compositor.ffmpeg_tool.probe_duration` 的三级兜底
+        （ffprobe → ``ffmpeg -i`` → default）。此前直接把
+        ``resolve_binary("ffprobe")`` 塞进命令列表，无 ffprobe 的环境（Docker）
+        抛 ``TypeError`` 并被 ``except Exception`` 吞掉，静默返回 0.0，
+        使音视频时长比较与尾部补齐基于错误的 0 值计算。
+        """
+        return probe_duration(path, default=0.0)
 
     @staticmethod
     def _run_ffmpeg(cmd: list, desc: str = "") -> None:

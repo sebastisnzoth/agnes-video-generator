@@ -14,7 +14,7 @@ from typing import List, Optional, Tuple
 import srt as srt_lib
 from moviepy import AudioFileClip, CompositeVideoClip, VideoFileClip
 
-from core.compositor.ffmpeg_tool import resolve_binary
+from core.compositor.ffmpeg_tool import probe_video_dimensions, resolve_binary
 from models.task import SubtitleStyle
 
 from .concat import _AUDIO_BITRATE, _AUDIO_CODEC, _AUDIO_FPS, _VIDEO_FPS
@@ -332,19 +332,17 @@ class AudioOverlayMixin:
 
     @staticmethod
     def _get_video_size(video_path: str) -> Tuple[int, int]:
-        """ffprobe 获取视频宽高，失败回退 (768, 1152)。"""
-        try:
-            r = subprocess.run(
-                [resolve_binary("ffprobe"), "-v", "error", "-select_streams", "v:0",
-                 "-show_entries", "stream=width,height",
-                 "-of", "csv=s=x:p=0", video_path],
-                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15,
-            )
-            if r.returncode == 0 and r.stdout.strip():
-                w, h = r.stdout.strip().split("x")
-                return int(w), int(h)
-        except Exception as e:
-            logger.warning(f"[Compositor] probe video size failed: {e}")
+        """获取视频宽高，探测失败回退 (768, 1152)。
+
+        改走 :func:`core.compositor.ffmpeg_tool.probe_video_dimensions` 的三级兜底
+        （ffprobe → ``ffmpeg -i``）。此前裸用 ``resolve_binary("ffprobe")``：
+        无 ffprobe 的环境（Docker）抛 ``TypeError`` 被吞掉后**恒定**回退竖屏
+        尺寸，导致 1280×720 横屏任务的 SRT→ASS 字幕画布按 768×1152 计算，
+        字幕字号与定位整体偏小/偏上。
+        """
+        w, h = probe_video_dimensions(video_path)
+        if w and h:
+            return int(w), int(h)
         return 768, 1152
 
     @staticmethod
