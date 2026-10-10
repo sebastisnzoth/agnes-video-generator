@@ -27,12 +27,13 @@ from core.pipelines import ALL_CHECKPOINTS
 from core.pipelines.music_video import (
     CLIP_SECONDS,
     DEFAULT_MUSIC_VIDEO_STYLE,
-    MAX_SONG_BYTES,
     MAX_SONG_SECONDS,
     MIN_SONG_SECONDS,
     MUSIC_SUBTITLE_STYLE,
     MUSIC_VIDEO_SIZES,
+    SONG_DURATION_TOLERANCE_S,
     SONG_UPLOAD_EXTS,
+    effective_max_song_bytes,
 )
 from core.pipelines.poetry_video import POETRY_SUBTITLE_STYLE
 from core.screenwriter import build_poetry_scene_prompt
@@ -190,7 +191,8 @@ async def _save_song_upload(upload: UploadFile, upload_dir: str) -> str:
     """分块保存歌曲上传（音乐视频 v7.1），返回落盘路径。
 
     - 扩展名不在 ``SONG_UPLOAD_EXTS`` 白名单 → 422；
-    - 累计字节超过 ``MAX_SONG_BYTES``（50 MB）→ 立即中止并删除半成品，返回 413；
+    - 累计字节超过 :func:`effective_max_song_bytes`（本地 / Docker 为 50 MB，
+      serverless 下收紧到平台请求体限额以内）→ 立即中止并删除半成品，返回 413；
     - 空文件 → 422（``song_unreadable``）；
     - 文件名统一替换为 UUID，扩展名取自白名单，经 ``safe_join`` 锚定在 upload_dir 内。
     """
@@ -214,12 +216,13 @@ async def _save_song_upload(upload: UploadFile, upload_dir: str) -> str:
                 if not chunk:
                     break
                 total += len(chunk)
-                if total > MAX_SONG_BYTES:
+                max_bytes = effective_max_song_bytes()
+                if total > max_bytes:
                     raise HTTPException(
                         status_code=413,
                         detail=translate(
                             "validation.song_too_large", None,
-                            max_mb=MAX_SONG_BYTES // (1024 * 1024),
+                            max_mb=max_bytes // (1024 * 1024),
                         ),
                     )
                 await f.write(chunk)
@@ -885,7 +888,10 @@ async def create_music_video_task(
             status_code=422,
             detail=translate("validation.song_unreadable", None),
         )
-    if duration < MIN_SONG_SECONDS or duration > MAX_SONG_SECONDS:
+    # 边界容忍：容器 padding 使探测值略超标称时长（5:00 的 MP3 实测 300.04s），
+    # 严格比较会让界面承诺的「最长 5 分钟」整段不可达。超容忍才算越界。
+    if (duration < MIN_SONG_SECONDS - SONG_DURATION_TOLERANCE_S
+            or duration > MAX_SONG_SECONDS + SONG_DURATION_TOLERANCE_S):
         _unlink_quietly(song_path)
         if singer_photo_path:
             _unlink_quietly(singer_photo_path)

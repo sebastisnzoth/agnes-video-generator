@@ -450,6 +450,7 @@
   "mvSettings": "Cài đặt video âm nhạc",
   "mvSongLabel": "Tệp bài hát",
   "mvSongHint": "Hỗ trợ MP3, WAV, M4A, AAC, OGG, FLAC, OPUS. Tối đa 50 MB và 5 phút, tối thiểu 10 giây.",
+  "mvSongTooLarge": "Tệp bài hát vượt quá giới hạn {max} MB.",
   "mvChooseSong": "Chọn bài hát",
   "mvNoSong": "Chưa chọn tệp",
   "mvNeedSong": "Vui lòng chọn tệp bài hát trước",

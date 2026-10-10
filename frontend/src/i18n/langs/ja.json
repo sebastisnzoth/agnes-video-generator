@@ -528,6 +528,7 @@
   "mvSettings": "ミュージックビデオ設定",
   "mvSongLabel": "楽曲ファイル",
   "mvSongHint": "MP3、WAV、M4A、AAC、OGG、FLAC、OPUS に対応。50 MB・5 分まで、10 秒以上。",
+  "mvSongTooLarge": "楽曲ファイルが {max} MB の上限を超えています。",
   "mvChooseSong": "楽曲を選択",
   "mvNoSong": "ファイルが選択されていません",
   "mvNeedSong": "先に楽曲ファイルを選択してください",

@@ -528,6 +528,7 @@
   "mvSettings": "Tetapan Video Muzik",
   "mvSongLabel": "Fail Lagu",
   "mvSongHint": "MP3, WAV, M4A, AAC, OGG, FLAC atau OPUS. Sehingga 50 MB dan 5 minit; sekurang-kurangnya 10 saat.",
+  "mvSongTooLarge": "Saiz fail lagu melebihi had {max} MB.",
   "mvChooseSong": "Pilih Lagu",
   "mvNoSong": "Tiada fail dipilih",
   "mvNeedSong": "Sila pilih fail lagu dahulu",
