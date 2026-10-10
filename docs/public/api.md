@@ -134,6 +134,7 @@ AGNES_CORS_ORIGINS=http://localhost:8787,http://127.0.0.1:8787 bash start.sh
 | POST | `/api/tasks/manuscript` | Create manuscript video task |
 | POST | `/api/tasks/poetry` | Create poetry video task |
 | POST | `/api/tasks/anchor` | Create digital-anchor task |
+| POST | `/api/tasks/music-video` | Create music video task (`song` file ≤50 MB / 10–300 s; `singer_mode` ∈ `none`/`photo`/`ai`, `singer_prompt` ≤500 chars required for `ai`, `singer_photo` file required for `photo`) |
 | POST | `/api/tasks` | Legacy task creation (mapped to creative) |
 | GET | `/api/poetry-scene-prompt` | Pre-generate poetry scene prompts |
 
