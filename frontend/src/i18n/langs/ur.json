@@ -450,6 +450,7 @@
   "mvSettings": "میوزک ویڈیو کی ترتیبات",
   "mvSongLabel": "گانے کی فائل",
   "mvSongHint": "MP3، WAV، M4A، AAC، OGG، FLAC یا OPUS۔ زیادہ سے زیادہ 50 MB اور 5 منٹ، کم از کم 10 سیکنڈ۔",
+  "mvSongTooLarge": "گانے کی فائل {max} MB کی حد سے بڑی ہے۔",
   "mvChooseSong": "گانا منتخب کریں",
   "mvNoSong": "کوئی فائل منتخب نہیں",
   "mvNeedSong": "براہ کرم پہلے گانے کی فائل منتخب کریں",

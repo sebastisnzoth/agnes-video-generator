@@ -129,6 +129,45 @@ class TestValidation:
         assert resp.status_code == 422
         assert _uploaded_files(env["uploads"]) == []
 
+    # ── 边界容忍（容器/编码器 padding）：标称 5 分钟的歌曲实测 300.04s ──
+    # 修复前用严格 > 比较，界面与文档承诺的「最长 5 分钟」整段不可达，
+    # 且上传文件随即被回滚删除，表现为「歌传不上去 / 存不住」。
+
+    def test_duration_exactly_five_minutes_with_encoder_padding_is_accepted(
+        self, client, env,
+    ):
+        """300.04s（5:00 的 MP3 实测值）→ 200，文件保留。"""
+        env["probe"]["seconds"] = 300.04
+        resp = client.post(URL, files=_song(), data={})
+        assert resp.status_code == 200, resp.text
+        assert len(_uploaded_files(env["uploads"])) == 1
+
+    @pytest.mark.parametrize("seconds", [299.9, 300.0, 300.2, 300.25])
+    def test_upper_boundary_within_tolerance_is_accepted(self, client, env, seconds):
+        env["probe"]["seconds"] = seconds
+        resp = client.post(URL, files=_song(), data={})
+        assert resp.status_code == 200, resp.text
+
+    @pytest.mark.parametrize("seconds", [300.5, 301.0])
+    def test_upper_boundary_beyond_tolerance_is_rejected(self, client, env, seconds):
+        env["probe"]["seconds"] = seconds
+        resp = client.post(URL, files=_song(), data={})
+        assert resp.status_code == 422
+        assert _uploaded_files(env["uploads"]) == []
+
+    def test_lower_boundary_within_tolerance_is_accepted(self, client, env):
+        """9.9s（标称 10 秒）→ 200。"""
+        env["probe"]["seconds"] = 9.9
+        resp = client.post(URL, files=_song(), data={})
+        assert resp.status_code == 200, resp.text
+
+    def test_duration_stored_is_the_real_probed_value(self, client, env):
+        """容忍只作用于校验，落库时长仍是真实探测值（不截断歌曲）。"""
+        env["probe"]["seconds"] = 300.04
+        resp = client.post(URL, files=_song(), data={})
+        assert resp.status_code == 200
+        assert _StubTaskManager.last.state.song_duration == 300.04
+
     def test_unreadable_song_returns_422(self, client, env):
         env["probe"]["seconds"] = 0.0
         resp = client.post(URL, files=_song(), data={})
@@ -143,7 +182,7 @@ class TestValidation:
 class TestUploadLimit:
     def test_oversize_upload_returns_413_and_leaves_no_partial_file(self, client, env, monkeypatch):
         # 将上限压到 1 KB（真实值 50 MB 由常量定义；此处只验证超限分支与清理）
-        monkeypatch.setattr(task_creation_routes, "MAX_SONG_BYTES", 1024)
+        monkeypatch.setattr(task_creation_routes, "effective_max_song_bytes", lambda: 1024)
         resp = client.post(URL, files=_song("big.mp3", b"\x01" * 4096), data={})
         assert resp.status_code == 413
         assert _uploaded_files(env["uploads"]) == []
@@ -153,9 +192,39 @@ class TestUploadLimit:
         assert mv.MAX_SONG_BYTES == 50 * 1024 * 1024
 
     def test_upload_at_limit_is_accepted(self, client, env, monkeypatch):
-        monkeypatch.setattr(task_creation_routes, "MAX_SONG_BYTES", 1024)
+        monkeypatch.setattr(task_creation_routes, "effective_max_song_bytes", lambda: 1024)
         resp = client.post(URL, files=_song("edge.mp3", b"\x02" * 1024), data={})
         assert resp.status_code == 200
+
+
+# ═══════════════════════════════════════════════════
+# serverless（Vercel）运行时收紧上限
+#
+# Vercel 对请求体有 4.5 MB 平台级硬上限，且拦截发生在应用之前：超限请求根本
+# 到不了 FastAPI，客户端只拿到一个无法解析的 HTML 413。这里主动收紧上限，
+# 让前端能提前校验并给出可读提示。
+# ═══════════════════════════════════════════════════
+
+class TestServerlessUploadLimit:
+    def test_default_runtime_keeps_fifty_megabytes(self, monkeypatch):
+        monkeypatch.delenv("VERCEL", raising=False)
+        assert mv.effective_max_song_bytes() == 50 * 1024 * 1024
+        assert mv.is_serverless_runtime() is False
+
+    def test_serverless_runtime_tightens_below_platform_body_limit(self, monkeypatch):
+        monkeypatch.setenv("VERCEL", "1")
+        assert mv.is_serverless_runtime() is True
+        limit = mv.effective_max_song_bytes()
+        assert limit < int(4.5 * 1024 * 1024)  # 必须低于平台请求体上限
+        assert limit > 3 * 1024 * 1024  # 仍可用于几分钟的 MP3
+
+    def test_serverless_oversize_returns_readable_413(self, client, env, monkeypatch):
+        """超限走应用内 413 + 可读文案，而不是撞平台层的 HTML 413。"""
+        monkeypatch.setattr(task_creation_routes, "effective_max_song_bytes", lambda: 1024)
+        resp = client.post(URL, files=_song("big.mp3", b"\x01" * 4096), data={})
+        assert resp.status_code == 413
+        assert "MB" in resp.json()["detail"]
+        assert _uploaded_files(env["uploads"]) == []
 
 
 # ═══════════════════════════════════════════════════
@@ -306,7 +375,7 @@ class TestSingerValidation:
 
     def test_song_oversize_with_photo_removes_photo(self, client, env, monkeypatch):
         # 歌曲保存失败（413）→ 回滚已落盘照片
-        monkeypatch.setattr(task_creation_routes, "MAX_SONG_BYTES", 1024)
+        monkeypatch.setattr(task_creation_routes, "effective_max_song_bytes", lambda: 1024)
         resp = client.post(
             URL,
             files=_files_with_photo(song_bytes=b"\x02" * 4096),

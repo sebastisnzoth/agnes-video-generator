@@ -150,10 +150,13 @@ def test_ass_disabled_falls_back_to_moviepy(tmp_path, monkeypatch):
     """AGNES_SUBTITLE_ASS=0：关闭 ASS 单链 → 回退 moviepy 多步路径。"""
     import subprocess
 
+    from core.compositor.ffmpeg_tool import resolve_binary
+
     srt = _write_srt(tmp_path)
     audio = str(tmp_path / "audio.mp3")
     subprocess.run(
-        ["ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+        # 走统一解析：无系统 ffmpeg 时用 imageio-ffmpeg 内置二进制（同 Docker 环境）
+        [resolve_binary("ffmpeg"), "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
          "-t", "3", "-c:a", "libmp3lame", "-q:a", "4", audio],
         capture_output=True,
     )

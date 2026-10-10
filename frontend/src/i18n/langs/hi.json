@@ -450,6 +450,7 @@
   "mvSettings": "म्यूज़िक वीडियो सेटिंग्स",
   "mvSongLabel": "गाने की फ़ाइल",
   "mvSongHint": "MP3, WAV, M4A, AAC, OGG, FLAC या OPUS। अधिकतम 50 MB और 5 मिनट, न्यूनतम 10 सेकंड।",
+  "mvSongTooLarge": "गाने की फ़ाइल {max} MB की सीमा से बड़ी है।",
   "mvChooseSong": "गाना चुनें",
   "mvNoSong": "कोई फ़ाइल नहीं चुनी गई",
   "mvNeedSong": "कृपया पहले एक गाने की फ़ाइल चुनें",

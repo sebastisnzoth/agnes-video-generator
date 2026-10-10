@@ -528,6 +528,7 @@
   "mvSettings": "Paramètres du clip musical",
   "mvSongLabel": "Fichier audio",
   "mvSongHint": "MP3, WAV, M4A, AAC, OGG, FLAC ou OPUS. Jusqu'à 50 Mo et 5 minutes, au moins 10 secondes.",
+  "mvSongTooLarge": "Le fichier de la chanson dépasse la limite de {max} Mo.",
   "mvChooseSong": "Choisir un fichier",
   "mvNoSong": "Aucun fichier choisi",
   "mvNeedSong": "Veuillez d'abord choisir un fichier audio",

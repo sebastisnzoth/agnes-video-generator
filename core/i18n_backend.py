@@ -923,8 +923,8 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "en": "Cannot read the song file (it is empty or corrupted)",
     },
     "validation.song_duration_range": {
-        "zh": "歌曲时长需在 {min}–{max} 秒之间",
-        "en": "The song duration must be between {min} and {max} seconds",
+        "zh": "歌曲时长需在 10 秒 – 5 分钟之间（限制 {min}–{max} 秒）",
+        "en": "The song must be between 10 seconds and 5 minutes long (limit: {min}–{max} seconds)",
     },
     "validation.music_video_size_invalid": {
         "zh": "分辨率仅支持 1280×720（横屏）或 768×1152（竖屏）",

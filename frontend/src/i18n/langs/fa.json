@@ -450,6 +450,7 @@
   "mvSettings": "تنظیمات ویدیوی موسیقی",
   "mvSongLabel": "فایل آهنگ",
   "mvSongHint": "MP3، WAV، M4A، AAC، OGG، FLAC یا OPUS. حداکثر ۵۰ مگابایت و ۵ دقیقه، و حداقل ۱۰ ثانیه.",
+  "mvSongTooLarge": "حجم فایل آهنگ از حد {max} مگابایت بیشتر است.",
   "mvChooseSong": "انتخاب آهنگ",
   "mvNoSong": "فایلی انتخاب نشده",
   "mvNeedSong": "لطفاً ابتدا یک فایل آهنگ انتخاب کنید",

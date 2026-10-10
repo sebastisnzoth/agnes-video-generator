@@ -526,6 +526,7 @@
   "mvSettings": "Pengaturan Video Musik",
   "mvSongLabel": "File Lagu",
   "mvSongHint": "MP3, WAV, M4A, AAC, OGG, FLAC, atau OPUS. Maksimal 50 MB dan 5 menit, minimal 10 detik.",
+  "mvSongTooLarge": "Ukuran file lagu melebihi batas {max} MB.",
   "mvChooseSong": "Pilih Lagu",
   "mvNoSong": "Belum ada file dipilih",
   "mvNeedSong": "Pilih file lagu terlebih dahulu",

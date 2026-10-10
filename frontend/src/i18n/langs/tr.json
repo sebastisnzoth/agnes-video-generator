@@ -450,6 +450,7 @@
   "mvSettings": "Müzik videosu ayarları",
   "mvSongLabel": "Şarkı dosyası",
   "mvSongHint": "MP3, WAV, M4A, AAC, OGG, FLAC veya OPUS. En fazla 50 MB ve 5 dakika, en az 10 saniye.",
+  "mvSongTooLarge": "Şarkı dosyası {max} MB sınırını aşıyor.",
   "mvChooseSong": "Şarkı Seç",
   "mvNoSong": "Dosya seçilmedi",
   "mvNeedSong": "Lütfen önce bir şarkı dosyası seçin",

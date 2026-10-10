@@ -114,6 +114,23 @@ class TestConfigRoutes:
         assert data["agnes_domain"] == "com"
         assert isinstance(data["watermark"], dict)
 
+    def test_get_config_exposes_song_upload_limit(self, client, monkeypatch):
+        """GET /api/config 下发歌曲上传上限，供前端提交前校验（Vercel 收紧）。"""
+        monkeypatch.delenv("VERCEL", raising=False)
+        resp = client.get("/api/config")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["max_song_bytes"] == 50 * 1024 * 1024
+        assert data["serverless"] is False
+
+    def test_get_config_tightens_limit_on_serverless(self, client, monkeypatch):
+        monkeypatch.setenv("VERCEL", "1")
+        resp = client.get("/api/config")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["serverless"] is True
+        assert data["max_song_bytes"] < int(4.5 * 1024 * 1024)
+
     def test_get_config_empty_key(self, client, monkeypatch):
         monkeypatch.setattr(config_routes, "get_api_key", lambda: "")
         resp = client.get("/api/config")

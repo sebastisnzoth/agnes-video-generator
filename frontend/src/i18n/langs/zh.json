@@ -406,6 +406,7 @@
   "mvSettings": "音乐视频设置",
   "mvSongLabel": "歌曲文件",
   "mvSongHint": "支持 MP3、WAV、M4A、AAC、OGG、FLAC、OPUS；不超过 50 MB、5 分钟，至少 10 秒。",
+  "mvSongTooLarge": "歌曲文件超过 {max} MB 上限",
   "mvChooseSong": "选择歌曲",
   "mvNoSong": "未选择文件",
   "mvNeedSong": "请先选择歌曲文件",

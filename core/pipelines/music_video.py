@@ -53,8 +53,38 @@ _PERFORMER_GENERIC = "the lead singer"
 # 上传与时长约束（PRD §三.1、system_design §4.1）
 SONG_UPLOAD_EXTS = frozenset({".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac", ".opus"})
 MAX_SONG_BYTES = 50 * 1024 * 1024
+
+# ── serverless（Vercel）运行时收紧 ──────────────────────────────
+# Vercel Serverless Functions 对**请求体**有 4.5 MB 硬上限，且是在平台层拦截：
+# 超限请求根本到不了应用，客户端收到的是一个无法解析的 HTML 413，
+# 前端只能显示「未知错误」，用户不知道发生了什么（表现为「歌传不上去」）。
+# 这里主动把歌曲上限收紧到平台限额以内（留 0.5 MB 给 multipart 边界、
+# 歌手照片与其他表单字段），让前端能在提交前校验并给出可读提示。
+_SERVERLESS_BODY_LIMIT_BYTES = int(4.5 * 1024 * 1024)
+SERVERLESS_MAX_SONG_BYTES = _SERVERLESS_BODY_LIMIT_BYTES - (512 * 1024)
+
+
+def is_serverless_runtime() -> bool:
+    """当前是否运行在 serverless（Vercel）环境。"""
+    return bool(os.getenv("VERCEL"))
+
+
+def effective_max_song_bytes() -> int:
+    """返回当前运行时的歌曲大小上限（字节）。
+
+    本地 / Docker 保持 50 MB 设计上限；serverless 下收紧到平台请求体限额以内。
+    前端通过 ``GET /api.config`` 的 ``max_song_bytes`` 读取该值做提交前校验。
+    """
+    return SERVERLESS_MAX_SONG_BYTES if is_serverless_runtime() else MAX_SONG_BYTES
 MIN_SONG_SECONDS = 10
 MAX_SONG_SECONDS = 300
+# 时长边界容忍（秒）：容器/编码器会在首尾补 padding，探测值几乎不可能刚好等于
+# 标称时长。MP3（LAME 编码器延迟 + 补齐）实测 300.0s 的音源探测为 300.04s，
+# AAC/M4A 的 priming 约 0.05s。此前用严格 ``>`` 比较，导致**标称 5 分钟整**
+# 的歌曲必然被 422 拒绝（界面与文档承诺的「最长 5 分钟」实际不可达），且上传
+# 文件随即被回滚删除，表现为「歌传不上去 / 存不住」。
+# 取 0.25s：远高于各类容器的 padding 上限，又远小于 0.5s（保证 300.5s 仍被拒）。
+SONG_DURATION_TOLERANCE_S = 0.25
 # 每段目标时长（秒）：段数 N = ceil(T / CLIP_SECONDS)，最多 30 段
 CLIP_SECONDS = 10
 # 仅支持横屏 16:9 与竖屏 2:3（与 Agnes 视频 API 的常用分辨率一致）

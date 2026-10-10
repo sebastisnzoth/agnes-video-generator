@@ -271,6 +271,55 @@ def test_probe_video_dimensions_unavailable(monkeypatch, tmp_path):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# probe_video_signature（concat -c copy 快路径专用：宽高 + 帧率）
+# ══════════════════════════════════════════════════════════════════════
+
+def test_probe_video_signature_via_ffprobe(monkeypatch, tmp_path):
+    f = tmp_path / "a.mp4"
+    f.write_bytes(b"x")
+    _patch_resolve(monkeypatch, {"ffprobe": "/usr/bin/ffprobe", "ffmpeg": None})
+    monkeypatch.setattr(
+        ft.subprocess, "run", lambda *a, **k: _R(stdout="1280x720x30/1\n"),
+    )
+    assert ft.probe_video_signature(str(f)) == (1280, 720, "30/1")
+
+
+def test_probe_video_signature_ffmpeg_fallback(monkeypatch, tmp_path):
+    """Docker 场景：无 ffprobe → 从 ffmpeg -i 的 stderr 解析宽高与帧率。"""
+    f = tmp_path / "a.mp4"
+    f.write_bytes(b"x")
+    _patch_resolve(monkeypatch, {"ffprobe": None, "ffmpeg": "/usr/bin/ffmpeg"})
+    monkeypatch.setattr(
+        ft.subprocess, "run",
+        lambda *a, **k: _R(
+            stderr="  Stream #0:0(und): Video: h264, yuv420p, 1280x720 [SAR 1:1 DAR 16:9], "
+                   "67 kb/s, 30 fps, 30 tbr",
+        ),
+    )
+    assert ft.probe_video_signature(str(f)) == (1280, 720, "30")
+
+
+def test_probe_video_signature_unknown_fps_still_returns_size(monkeypatch, tmp_path):
+    """容器未记录帧率（0/0）→ 帧率按未知处理，宽高仍然可用。"""
+    f = tmp_path / "a.mp4"
+    f.write_bytes(b"x")
+    _patch_resolve(monkeypatch, {"ffprobe": "/usr/bin/ffprobe", "ffmpeg": None})
+    monkeypatch.setattr(ft.subprocess, "run", lambda *a, **k: _R(stdout="768x1152x0/0\n"))
+    assert ft.probe_video_signature(str(f)) == (768, 1152, None)
+
+
+def test_probe_video_signature_missing_file():
+    assert ft.probe_video_signature("/nonexistent/a.mp4") == (None, None, None)
+
+
+def test_probe_video_signature_both_unavailable(monkeypatch, tmp_path):
+    f = tmp_path / "a.mp4"
+    f.write_bytes(b"x")
+    _patch_resolve(monkeypatch, {"ffprobe": None, "ffmpeg": None})
+    assert ft.probe_video_signature(str(f)) == (None, None, None)
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Issue #78 崩溃点：SilentTTSEngine 无 ffmpeg 时应给 i18n 报错
 # ══════════════════════════════════════════════════════════════════════
 

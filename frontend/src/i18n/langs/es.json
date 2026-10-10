@@ -528,6 +528,7 @@
   "mvSettings": "Ajustes del vídeo musical",
   "mvSongLabel": "Archivo de canción",
   "mvSongHint": "MP3, WAV, M4A, AAC, OGG, FLAC u OPUS. Hasta 50 MB y 5 minutos, mínimo 10 segundos.",
+  "mvSongTooLarge": "El archivo de la canción supera el límite de {max} MB.",
   "mvChooseSong": "Elegir canción",
   "mvNoSong": "Ningún archivo seleccionado",
   "mvNeedSong": "Primero elige un archivo de canción",

@@ -55,6 +55,7 @@ from core.config import (
     set_watermark_config,
 )
 from core.i18n_backend import translate
+from core.pipelines.music_video import effective_max_song_bytes, is_serverless_runtime
 
 router = APIRouter(tags=["config"])
 
@@ -86,6 +87,10 @@ async def get_config():
         "models": get_selected_models(),
         "agnes_domain": get_agnes_domain(),
         "agnes_domains": list(AGNES_DOMAIN_MAP.keys()),
+        # 歌曲上传上限（字节）：serverless（Vercel）下收紧到平台请求体限额以内，
+        # 前端据此在提交前校验，避免平台层 413 变成用户看不懂的未知错误。
+        "max_song_bytes": effective_max_song_bytes(),
+        "serverless": is_serverless_runtime(),
     }
     return data
 

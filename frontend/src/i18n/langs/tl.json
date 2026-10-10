@@ -450,6 +450,7 @@
   "mvSettings": "Mga Setting ng Music Video",
   "mvSongLabel": "File ng Kanta",
   "mvSongHint": "MP3, WAV, M4A, AAC, OGG, FLAC, o OPUS. Hanggang 50 MB at 5 minuto; hindi bababa sa 10 segundo.",
+  "mvSongTooLarge": "Ang file ng kanta ay mas malaki sa limiteng {max} MB.",
   "mvChooseSong": "Pumili ng Kanta",
   "mvNoSong": "Walang napiling file",
   "mvNeedSong": "Pumili muna ng file ng kanta",
