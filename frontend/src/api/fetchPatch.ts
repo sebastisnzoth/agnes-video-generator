@@ -27,6 +27,13 @@ export function installFetchLangHeader(): void {
   if (typeof window === 'undefined' || typeof window.fetch !== 'function') return
 
   const originalFetch = window.fetch.bind(window)
+  // The Pages frontend can talk to a separately hosted HTTPS Agnes backend.
+  // Never put API keys in VITE_* variables: Vite embeds them in public JS.
+  const backend = (import.meta.env.VITE_AGNES_BACKEND_URL || '').trim().replace(/\/$/, '')
+  const routeApi = (url: string): string => {
+    if (!backend || !/^\/api(?:\/|\?|$)/.test(url)) return url
+    return `${backend}${url}`
+  }
 
   const patched: typeof window.fetch = (input, init) => {
     try {
@@ -36,7 +43,7 @@ export function installFetchLangHeader(): void {
         const headers = new Headers(input.headers)
         if (!headers.has(UI_LANG_HEADER)) headers.set(UI_LANG_HEADER, lang)
         // 保留原 Request 的其他属性（method/body/mode 等）
-        const cloned = new Request(input, { headers })
+        const cloned = new Request(routeApi(input.url.startsWith(window.location.origin) ? input.url.slice(window.location.origin.length) : input.url), new Request(input, { headers }))
         return originalFetch(cloned, init)
       }
       // 字符串 / URL 形态：走 init.headers
@@ -61,7 +68,7 @@ export function installFetchLangHeader(): void {
       } else {
         nextInit.headers = { [UI_LANG_HEADER]: lang }
       }
-      return originalFetch(input as string | URL, nextInit)
+      return originalFetch(typeof input === 'string' ? routeApi(input) : input instanceof URL ? new URL(routeApi(input.toString())) : input, nextInit)
     } catch {
       // 拦截失败时不阻断请求，退回原始 fetch（宁可丢语言头也不打断业务）
       return originalFetch(input as string | URL, init)
