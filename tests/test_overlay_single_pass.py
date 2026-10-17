@@ -6,6 +6,7 @@ import pytest
 
 from core.compositor.concatenator.audio_overlay import AudioOverlayMixin
 from core.compositor.concatenator.concat import VideoConcatenator
+from core.compositor.ffmpeg_tool import resolve_binary
 
 ASSET = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -17,7 +18,8 @@ _HAS_ASSET = os.path.exists(ASSET)
 def _make_audio(tmp_path, seconds=3):
     ap = str(tmp_path / "audio.mp3")
     subprocess.run(
-        ["ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+        # 走统一解析：无系统 ffmpeg 时用 imageio-ffmpeg 内置二进制（同 Docker 环境）
+        [resolve_binary("ffmpeg"), "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
          "-t", str(seconds), "-c:a", "libmp3lame", "-q:a", "4", ap],
         capture_output=True,
     )

@@ -9,6 +9,7 @@ pytestmark = pytest.mark.slow
 
 from core.compositor.concatenator.audio_overlay import AudioOverlayMixin
 from core.compositor.concatenator.concat import VideoConcatenator
+from core.compositor.ffmpeg_tool import resolve_binary
 
 ASSET = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -32,7 +33,8 @@ def _write_srt(tmp_path, name, content):
 def _make_audio(tmp_path, name, seconds=2):
     ap = os.path.join(str(tmp_path), name)
     subprocess.run(
-        ["ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+        # 走统一解析：无系统 ffmpeg 时用 imageio-ffmpeg 内置二进制（同 Docker 环境）
+        [resolve_binary("ffmpeg"), "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
          "-t", str(seconds), "-c:a", "libmp3lame", "-q:a", "4", ap],
         capture_output=True,
     )
