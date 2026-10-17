@@ -31,6 +31,8 @@ jobs:
         working-directory: frontend
         env:
           GITHUB_PAGES: 'true'
+          # Public backend URL only. Never put AGNES_API_KEY in VITE_*.
+          VITE_AGNES_BACKEND_URL: ${{ vars.AGNES_BACKEND_URL }}
         run: |
           npm ci
           npm run build
