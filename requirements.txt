@@ -41,4 +41,6 @@ imageio-ffmpeg>=0.2.0,<1.0.0
 faster-whisper>=1.2.0,<2.0.0
 # av（PyAV）上限 17：av 19.x 仅发布 cp312 wheel、17.x 仅 cp311，16.x 覆盖 cp311/312/313，
 # 避免在无 wheel 的解释器上从源码编译 ffmpeg 绑定。
-av>=16.0.0,<17.0.0
+# Catalina: PyAV 16.x requires macOS 11; allow 13.x (macosx_10_13_x86_64 wheels).
+# Newer macOS/Linux installations may still select newer compatible wheels.
+av>=13.0.0,<17.0.0
