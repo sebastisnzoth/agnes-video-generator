@@ -129,6 +129,19 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# ── lifespan 是否启用 ────────────────────────────────────────────
+# Vercel 的 ASGI adapter 自己管理应用生命周期：把自定义 lifespan 传给它会造成
+# Starlette lifespan 上下文递归，因此**仅在 Vercel 运行时**关闭。
+#
+# 此前这里是**无条件** ``lifespan=None``，等于为了迁就 serverless 把所有部署
+# 方式的启动逻辑一起关掉：本地 / Docker / start.sh 启动时
+# ``init_runtime_state()`` 不再执行 → 工作目录与 uploads 不创建、音色目录不预加载、
+# 僵尸任务清理与 ffmpeg 检测全部静默失效。服务能起来但首个字节写入/首次合成才
+# 暴露问题，表现为「生成到一半报错」或「重启后旧任务状态丢失」。
+#
+# Vercel 侧不依赖 lifespan：``api/index.py`` 已显式调用 ``init_runtime_state()``。
+_RUNNING_ON_VERCEL = bool(os.getenv("VERCEL"))
+
 app = FastAPI(
     title="Agnes Video Generator",
     description=(
@@ -136,10 +149,7 @@ app = FastAPI(
         "API 文档：https://video.lichuanyang.top/api-docs ｜ "
         "调用指南：https://video.lichuanyang.top/api-docs"
     ),
-    # Vercel's ASGI adapter manages application lifecycle itself. Passing this
-    # custom lifespan into the adapter causes recursive Starlette lifespan
-    # contexts in the serverless runtime, so disable it for this deployment.
-    lifespan=None,
+    lifespan=None if _RUNNING_ON_VERCEL else lifespan,
 )
 
 
