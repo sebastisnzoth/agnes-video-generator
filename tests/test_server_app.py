@@ -134,6 +134,47 @@ class TestLifespan:
 
 
 # ═══════════════════════════════════════════════
+# 1b. lifespan 启用条件（Vercel 适配回归防护）
+# ═══════════════════════════════════════════════
+
+class TestLifespanEnablement:
+    """lifespan 只能在 Vercel serverless 下关闭，不得无条件关掉。
+
+    回归背景：为规避 Vercel ASGI adapter 的 lifespan 递归，曾把 ``server.py`` 的
+    ``FastAPI(lifespan=...)`` 改成**无条件** ``None``。结果本地 / Docker / start.sh
+    启动时 ``init_runtime_state()`` 不再执行 → 工作目录与 uploads 不创建、音色目录
+    不预加载、僵尸任务清理与 ffmpeg 检测全部静默失效。
+    """
+
+    def test_lifespan_runs_when_not_on_vercel(self, monkeypatch):
+        """非 Vercel 环境：lifespan 必须执行 init_runtime_state。"""
+        calls = []
+        monkeypatch.setattr(server_mod, "init_runtime_state", lambda: calls.append(1))
+        assert server_mod._RUNNING_ON_VERCEL is False, "测试环境不应设置 VERCEL"
+        with TestClient(server_mod.app):
+            pass
+        assert calls == [1], "本地/Docker 启动必须执行 lifespan 初始化"
+
+    def test_lifespan_disabled_only_on_vercel(self, monkeypatch):
+        """仅 VERCEL 环境变量存在时关闭 lifespan。"""
+        import importlib
+
+        calls = []
+        monkeypatch.setenv("VERCEL", "1")
+        try:
+            reloaded = importlib.reload(server_mod)
+            assert reloaded._RUNNING_ON_VERCEL is True, "VERCEL 存在时应判定为 serverless"
+            monkeypatch.setattr(reloaded, "init_runtime_state", lambda: calls.append(1))
+            with TestClient(reloaded.app):
+                pass
+            assert calls == [], "Vercel 下 lifespan 应关闭（避免 ASGI adapter 递归）"
+        finally:
+            # 复位：模块级 app 一旦被 reload 改写会影响后续用例
+            monkeypatch.delenv("VERCEL", raising=False)
+            importlib.reload(server_mod)
+
+
+# ═══════════════════════════════════════════════
 # 2. 静态资源
 # ═══════════════════════════════════════════════
 

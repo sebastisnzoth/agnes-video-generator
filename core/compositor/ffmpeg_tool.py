@@ -201,6 +201,69 @@ def probe_video_dimensions(path: str) -> "tuple[int | None, int | None]":
     return None, None
 
 
+def probe_video_signature(path: str) -> "tuple[int | None, int | None, str | None]":
+    """探测视频的 ``(宽, 高, 平均帧率)`` 签名，供 concat demuxer 快路径比对。
+
+    与 :func:`probe_duration` / :func:`probe_video_dimensions` 同一套兜底策略：
+    优先 ``ffprobe``（一次拿到宽高与帧率），ffprobe 不可用时回退解析
+    ``ffmpeg -i`` 的 stderr。两者都不可用时返回 ``(None, None, None)``，
+    由调用方决定回退策略（concat 快路径即应安全放弃）。
+
+    .. note::
+       本函数存在的直接原因：``-c copy`` 快路径此前直接把
+       ``resolve_binary("ffprobe")`` 塞进命令列表，在只有 ffmpeg、没有
+       ffprobe 的环境（**Docker 镜像**即如此——Dockerfile 只把 imageio-ffmpeg
+       的 ffmpeg 软链到 PATH）会抛 ``TypeError: expected str, bytes or
+       os.PathLike object, not NoneType``，被 ``except Exception`` 吞掉后
+       静默回退 moviepy 全量重编码，2.1a 快路径在 Docker 里从未生效。
+
+    Args:
+        path: 视频文件路径。
+
+    Returns:
+        ``(width, height, avg_frame_rate)``；任一项探测不到即为 None。
+        帧率在两条路径下格式不同（ffprobe ``30/1``，ffmpeg 回退 ``30``），
+        但同一次比对内取值方式一致，不影响签名比对语义。
+    """
+    if not path or not os.path.exists(path):
+        return None, None, None
+
+    ffprobe = resolve_binary("ffprobe")
+    if ffprobe:
+        try:
+            r = subprocess.run(
+                [ffprobe, "-v", "error", "-select_streams", "v:0",
+                 "-show_entries", "stream=width,height,avg_frame_rate",
+                 "-of", "csv=s=x:p=0", path],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15,
+            )
+            parts = (r.stdout or "").strip().split("x")
+            if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+                fps = parts[2].strip()
+                # 0/0 = 容器未记录帧率，按「未知」处理，交回退路径解析
+                return int(parts[0]), int(parts[1]), (None if fps in ("", "0/0") else fps)
+        except Exception as e:
+            logger.warning(f"[Compositor] ffprobe signature probe failed: {e}")
+
+    ffmpeg = resolve_binary("ffmpeg")
+    if ffmpeg:
+        try:
+            r = subprocess.run(
+                [ffmpeg, "-hide_banner", "-i", path],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15,
+            )
+            err = r.stderr or ""
+            m = re.search(r"Video:.*?(\d{2,5})x(\d{2,5})", err)
+            if m:
+                fps_m = re.search(r"(\d+(?:\.\d+)?)\s+fps", err)
+                return int(m.group(1)), int(m.group(2)), (fps_m.group(1) if fps_m else None)
+        except Exception as e:
+            logger.warning(f"[Compositor] ffmpeg signature probe failed: {e}")
+
+    logger.warning(f"[Compositor] video signature unavailable: {path}")
+    return None, None, None
+
+
 def _resolve(name: str) -> "str | None":
     # 1) 显式指定
     override = os.environ.get(_EXE_OVERRIDE[name])

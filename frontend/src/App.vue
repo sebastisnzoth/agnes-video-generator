@@ -72,6 +72,13 @@ onMounted(async () => {
     if (cfg.app_version) {
       appState.appVersion = cfg.app_version
     }
+    // 歌曲上传上限 + 是否 serverless（提交前校验 / 存储提示用）
+    if (cfg.max_song_bytes) {
+      appState.maxSongBytes = cfg.max_song_bytes
+    }
+    if (cfg.serverless !== undefined) {
+      appState.serverless = !!cfg.serverless
+    }
     await renderWorkspaces()
     if (cfg.watermark !== undefined) {
       appState.watermarkEnabled = !!cfg.watermark.enabled

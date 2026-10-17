@@ -1,0 +1,44 @@
+# Render Blueprint — 常驻后端（免费档）
+#
+# 为什么需要它：视频生成是**长任务**（脚本 → 配音 → 分镜生图 → 生成片段 →
+# 拼接合成），一次往往几分钟到几十分钟。Vercel Serverless 的函数时长上限
+# （Hobby 60s / Pro 300s）+ 请求结束后实例即冻结的语义，决定了它无法承载 worker。
+# 详见 docs/public/deployment.md。
+#
+# 用法：Render 面板 → Blueprints → New Blueprint Instance → 选本仓库。
+# 免费档限制（真实存在，不是可以忽略的细节）：
+#   - 15 分钟无请求即休眠，下次冷启动约 50s；
+#   - 磁盘不持久：重新部署后 /app/.working_dir 里的旧任务与视频会丢失；
+#   - 内存 512 MB，长视频合成有 OOM 风险。
+# 若有稳定需求，换 Starter 档（常驻 + 持久盘）或改用 Koyeb / Hugging Face Spaces。
+
+services:
+  - type: web
+    name: agnes-video-generator
+    runtime: docker
+    repo: https://github.com/sebastisnzoth/agnes-video-generator
+    branch: master
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    numInstances: 1
+    envVars:
+      # Dockerfile 已 EXPOSE 8765；Render 注入的 PORT 优先，但显式声明更稳妥
+      - key: PORT
+        value: "8765"
+
+      # ── CORS：只允许自己那个 GitHub Pages 前端跨源调用 ──
+      # 逗号分隔；留空 = 完全不启用 CORS（默认，攻击面最小）。
+      # 前端与后端同源部署时请留空，不要图省事填 "*"。
+      - key: AGNES_CORS_ORIGINS
+        value: "https://sebastisnzoth.github.io"
+
+      # ── 密钥：sync:false = 不写进仓库，必须在 Render 面板里填 ──
+      # GitHub Actions 的 Secret 不会自动同步到 Render，两边要各配一次。
+      - key: AGNES_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

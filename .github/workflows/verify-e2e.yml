@@ -1,0 +1,156 @@
+name: Verify Deployment (E2E)
+
+# ══════════════════════════════════════════════════════════════════
+# 真实部署验证：GitHub Pages 前端 + HTTPS 后端 + Agnes 真实生成
+#
+# 为什么需要这个 workflow：
+#   本项目的前端部署在 GitHub Pages、后端需要常驻进程（详见 docs/deployment），
+#   两者都不在本地开发环境里。仅跑单测无法证明「线上真的能出片」。
+#   这里在 GitHub Runner（有完整出网能力）上做真实链路验证。
+#
+# 凭据：
+#   只从仓库 Secret ``AGNES_API_KEY`` 读取。Secret 不会进入日志、产物或前端包。
+#   未配置该 Secret 时，真实生成这一步判为 SKIP（退出码 2），不算失败。
+#   注意：GitHub Actions Secret 不会自动同步到 Vercel / 其它托管平台，
+#   那些平台需要在各自面板里单独配置同名环境变量。
+# ══════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_url:
+        description: 'HTTPS base URL of the backend (blank = repo variable AGNES_BACKEND_URL)'
+        required: false
+        default: ''
+      run_real_generation:
+        description: 'Create a real video with the Agnes API (needs AGNES_API_KEY secret)'
+        required: false
+        default: 'true'
+        type: boolean
+      prompt:
+        description: 'Prompt used for the real generation test'
+        required: false
+        default: 'Un astronauta caminando sobre una playa tropical al atardecer, estilo cinematográfico, movimiento de cámara suave.'
+      seconds:
+        description: 'Clip length in seconds (4-12). Keep it short to minimise usage.'
+        required: false
+        default: '5'
+
+permissions:
+  contents: read
+
+jobs:
+  # ── 1. 冒烟：前端与后端是否真的可达 ──────────────────────────────
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve public URLs
+        id: urls
+        run: |
+          backend="${{ inputs.backend_url }}"
+          if [ -z "$backend" ]; then backend="${{ vars.AGNES_BACKEND_URL }}"; fi
+          if [ -z "$backend" ]; then
+            echo "::error::No backend URL. Pass it as an input or set the repo variable AGNES_BACKEND_URL."
+            exit 1
+          fi
+          backend="${backend%/}"
+          pages="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "pages=$pages" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend"
+          echo "pages=$pages"
+
+      - name: GitHub Pages frontend reachable
+        run: |
+          code=$(curl -sS -o /tmp/pages.html -w '%{http_code}' -L "${{ steps.urls.outputs.pages }}")
+          echo "Pages HTTP $code"
+          if [ "$code" != "200" ]; then echo "::error::Pages returned $code"; exit 1; fi
+          if ! grep -q 'id="app"' /tmp/pages.html; then
+            echo "::error::Pages HTML does not contain the Vue mount point (#app)"
+            exit 1
+          fi
+          echo "✅ Pages 前端可达且挂载点存在"
+
+      - name: Backend /api/health
+        run: |
+          code=$(curl -sS -o /tmp/health.json -w '%{http_code}' "${{ steps.urls.outputs.backend }}/api/health")
+          echo "HTTP $code"
+          cat /tmp/health.json
+          if [ "$code" != "200" ]; then echo "::error::backend health returned $code"; exit 1; fi
+          grep -q '"ok":true' /tmp/health.json || grep -q '"ok": true' /tmp/health.json
+
+      - name: Backend /api/config (no secrets leaked)
+        run: |
+          curl -sS "${{ steps.urls.outputs.backend }}/api/config" -o /tmp/config.json
+          python3 - <<'PY'
+          import json, re, sys
+          cfg = json.load(open('/tmp/config.json'))
+          print("app_version:", cfg.get("app_version"))
+          print("serverless :", cfg.get("serverless"))
+          print("max_song_bytes:", cfg.get("max_song_bytes"))
+          blob = json.dumps(cfg)
+          # 后端只应回传掩码后的 Key；明文 Key 泄漏到 /api/config 就是事故
+          hits = re.findall(r'(sk-[A-Za-z0-9]{16,}|AIza[0-9A-Za-z_\-]{20,})', blob)
+          if hits:
+              print("::error::/api/config appears to expose a raw API key")
+              sys.exit(1)
+          print("✅ /api/config 未暴露明文 Key")
+          PY
+
+  # ── 2. 真实生成：直接用 Agnes API 出一条视频 ──────────────────────
+  real-generation:
+    runs-on: ubuntu-latest
+    needs: smoke
+    if: ${{ inputs.run_real_generation }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ffmpeg (probe the produced file)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Real video generation against the Agnes API
+        id: gen
+        env:
+          # 只在此步注入；mask 后即使脚本 echo 也不会进日志
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AGNES_BASE_URL: https://apihub.agnes-ai.com
+        run: |
+          echo "::add-mask::$AGNES_API_KEY"
+          set +e
+          python3 scripts/verify_agnes_e2e.py \
+            --prompt "${{ inputs.prompt }}" \
+            --seconds ${{ inputs.seconds }} \
+            --out generated.mp4 \
+            --summary "$GITHUB_STEP_SUMMARY"
+          code=$?
+          set -e
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" = "2" ]; then
+            echo "::warning::AGNES_API_KEY secret not configured — real generation SKIPPED."
+            echo "::warning::Add it under Settings → Secrets and variables → Actions → New repository secret."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+          exit $code
+
+      - name: Probe the generated video
+        if: ${{ steps.gen.outputs.skipped == 'false' }}
+        run: |
+          ffprobe -v error -show_entries format=duration,format_name -show_entries stream=codec_type,width,height \
+            -of default=noprint_wrappers=1 generated.mp4 | tee /tmp/probe.txt
+          test -s /tmp/probe.txt
+
+      - name: Upload generated video
+        if: ${{ steps.gen.outputs.skipped == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: agnes-generated-video
+          path: generated.mp4
+          retention-days: 7

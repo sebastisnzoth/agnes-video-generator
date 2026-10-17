@@ -528,6 +528,7 @@
   "mvSettings": "Настройки музыкального видео",
   "mvSongLabel": "Файл песни",
   "mvSongHint": "MP3, WAV, M4A, AAC, OGG, FLAC или OPUS. До 50 МБ и 5 минут, минимум 10 секунд.",
+  "mvSongTooLarge": "Файл песни превышает лимит {max} МБ.",
   "mvChooseSong": "Выбрать песню",
   "mvNoSong": "Файл не выбран",
   "mvNeedSong": "Сначала выберите файл песни",
