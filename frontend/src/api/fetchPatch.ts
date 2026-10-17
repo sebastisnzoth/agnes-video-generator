@@ -30,9 +30,11 @@ export function installFetchLangHeader(): void {
   // The Pages frontend can talk to a separately hosted HTTPS Agnes backend.
   // Never put API keys in VITE_* variables: Vite embeds them in public JS.
   const backend = (import.meta.env.VITE_AGNES_BACKEND_URL || '').trim().replace(/\/$/, '')
+  // Disable routing for invalid or non-HTTPS endpoints to avoid mixed content and leakage.
+  const backendUrl = /^https:\/\/[^/]+$/i.test(backend) ? backend : ''
   const routeApi = (url: string): string => {
-    if (!backend || !/^\/api(?:\/|\?|$)/.test(url)) return url
-    return `${backend}${url}`
+    if (!backendUrl || !/^\/api(?:\/|\?|$)/.test(url)) return url
+    return `${backendUrl}${url}`
   }
 
   const patched: typeof window.fetch = (input, init) => {
@@ -43,7 +45,10 @@ export function installFetchLangHeader(): void {
         const headers = new Headers(input.headers)
         if (!headers.has(UI_LANG_HEADER)) headers.set(UI_LANG_HEADER, lang)
         // 保留原 Request 的其他属性（method/body/mode 等）
-        const cloned = new Request(routeApi(input.url.startsWith(window.location.origin) ? input.url.slice(window.location.origin.length) : input.url), new Request(input, { headers }))
+        const relative = input.url.startsWith(window.location.origin + '/')
+          ? input.url.slice(window.location.origin.length)
+          : input.url
+        const cloned = new Request(routeApi(relative), new Request(input, { headers }))
         return originalFetch(cloned, init)
       }
       // 字符串 / URL 形态：走 init.headers
