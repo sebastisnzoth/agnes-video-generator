@@ -8,7 +8,7 @@
 | **Creative Video** | Full AI pipeline: idea → story → script → character reference → multi-scene video → narration → subtitles → final output. 10-step pipeline, fully automated. | Storytelling, creative videos |
 | **Manuscript Video** | Paste a long article or script → auto-split by reading duration → per-segment AI video → unified TTS narration + subtitle overlay → final output. 5-step pipeline. | Explainers, course content, vlogs |
 | **Digital Anchor** | AI-generated digital anchor (or upload custom image) → dynamic anchor clip → TTS narration → subtitle positioning → looped concatenation. Optional reference image for appearance consistency. | Virtual anchors, product presentations, news broadcasts |
-| **Music Video** | Upload a song (up to 5 minutes) → one AI clip per 10 seconds → the original song as the only audio track → automatic lyric recognition with burned-in lyric subtitles. Lyrics are optional; if recognition fails, the video is still produced without subtitles. | Music videos, lyric videos, song promos |
+| **Music Video** | Upload a song (up to 5 minutes) → one AI clip per 10 seconds → the original song as the only audio track → automatic lyric recognition with burned-in lyric subtitles. Optionally keep one consistent singer/performer across every clip, from your own photo or AI-generated from a description. Lyrics are optional; if recognition fails, the video is still produced without subtitles. | Music videos, lyric videos, song promos |
 
 ## 🎵 Music Videos
 
@@ -18,6 +18,8 @@ Upload a song and get a music video built around it:
 - **One AI clip per 10 seconds**: the song is split into 10-second segments (the last one is the remainder), and each segment gets its own scene prompt that follows the lyrics in that part of the song. A style preset or your own style text applies to every clip.
 - **The original song is the soundtrack**: the final video uses your song as its only audio track — no text-to-speech, no volume boost.
 - **Automatic lyrics**: lyrics are transcribed locally with faster-whisper (CPU, `small` model by default; set `AGNES_LYRICS_MODEL` to use another size). Recognized lines can be burned into the video as subtitles. If recognition fails, or the song has no vocals, the task still completes without subtitles.
+- **A consistent singer or performer**: pick **none** (no reference image), upload a **photo** of the performer, or describe them and let the **AI image model** generate the portrait (up to 500 characters). Whichever you choose, that single image is submitted as the reference image of every segment, so the same person appears in all clips instead of drifting between them.
+- **Readable storyboard**: every task writes a `storyboard.json` that lines up the exact time spans, the recognized lyric lines for each span and the generated scene visuals. Download it from the task's artifact list to review or hand-tune your music video.
 - **Mind the queue**: clips are submitted through the video API rate limit (one submission per minute per API key by default), so a 5-minute song (about 30 clips) takes at least 30 minutes to submit before rendering finishes.
 
 ## 🆓 Completely Free AI Model Chain
