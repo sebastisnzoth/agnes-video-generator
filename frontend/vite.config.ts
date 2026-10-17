@@ -6,7 +6,7 @@ import { fileURLToPath, URL } from 'node:url'
 // emptyOutDir=false 保留 static/ 下后端依赖的 favicon.ico / icon.png / generated/ 等资源。
 export default defineConfig({
   plugins: [vue()],
-  base: '/static/',
+  base: process.env.GITHUB_PAGES === 'true' ? '/agnes-video-generator/' : '/static/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

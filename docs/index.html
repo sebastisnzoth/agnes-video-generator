@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0c1020"><title>Agnes Studio · Video IA</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;color:#edf0ff;background:#090d19;color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 75% -10%,#28214c 0,transparent 45%),#090d19}header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px max(24px,calc((100vw - 1120px)/2));border-bottom:1px solid #ffffff18}.brand{font-size:22px;font-weight:800;letter-spacing:-.8px}.brand span{color:#aa96ff}.pill{border:1px solid #ffffff2b;border-radius:100px;padding:7px 12px;color:#adb6d3;font-size:12px}main{max-width:1120px;margin:45px auto;padding:0 24px}.intro{max-width:730px}h1{font-size:clamp(32px,5vw,55px);letter-spacing:-2px;line-height:1.08;margin:12px 0}p{color:#aeb7d1;line-height:1.6}.grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,.85fr);gap:22px;margin-top:30px}.panel{background:#151b2d;border:1px solid #ffffff18;border-radius:20px;padding:25px;box-shadow:0 14px 45px #0003}h2{font-size:18px;margin:0 0 20px}label{display:block;color:#c7cce0;font-size:13px;font-weight:650;margin:19px 0 8px}textarea,input,select{width:100%;background:#0d1222;color:#f2f2ff;border:1px solid #343b54;border-radius:11px;padding:13px;font:inherit}textarea{resize:vertical;min-height:155px}textarea:focus,input:focus,select:focus{outline:2px solid #8e7bf5;outline-offset:1px}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}button{border:0;background:#9a82ff;color:#101024;border-radius:12px;font-weight:750;padding:13px 18px;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#30374d;color:#e6e8ff}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}.preview{display:flex;align-items:center;justify-content:center;aspect-ratio:16/9;background:linear-gradient(145deg,#252144,#111729);border:1px dashed #545a76;border-radius:14px;color:#aeb6d0;text-align:center;padding:18px;overflow:hidden}.preview video{width:100%;height:100%;object-fit:contain}.status{font-size:13px;padding:14px;border-radius:11px;background:#0e1424;overflow-wrap:anywhere;white-space:pre-wrap}.hint{font-size:12px}.hidden{display:none}a{color:#b5a7ff}footer{margin:30px 0 60px;color:#8791aa;font-size:12px}@media(max-width:780px){.grid{grid-template-columns:1fr}header{padding:16px 24px}main{margin:25px auto}.panel{padding:19px}}@media(max-width:400px){.two{grid-template-columns:1fr}}
+</style></head><body>
+<header><div class="brand">✦ Agnes <span>Studio</span></div><div class="pill" id="connection">● Motor no configurado</div></header>
+<main><div class="intro"><div class="pill" style="display:inline-block">CREADOR DE VIDEO CON IA</div><h1>De una idea a un video.</h1><p>Escribí lo que querés crear. Esta interfaz funciona en GitHub Pages; para generar videos reales conectá un motor compatible mediante HTTPS.</p></div>
+<div class="grid"><section class="panel"><h2>Crear video</h2><form id="generator"><label for="prompt">Describí tu video</label><textarea id="prompt" required maxlength="6000" placeholder="Un videoclip cinematográfico de una ciudad al atardecer, luces cálidas y cámara lenta..."></textarea>
+<div class="two"><div><label for="format">Formato</label><select id="format"><option value="9:16">Vertical · 9:16</option><option value="16:9">Horizontal · 16:9</option><option value="1:1">Cuadrado · 1:1</option></select></div><div><label for="duration">Duración solicitada</label><select id="duration"><option value="5">5 segundos</option><option value="10">10 segundos</option><option value="15">15 segundos</option></select></div></div>
+<div class="actions"><button id="generate" type="submit">✦ Generar video</button><button class="secondary" type="button" id="local">Crear video local (sin IA)</button><button class="secondary" type="button" id="demo">Ver ejemplo de prompt</button></div></form><p class="hint">El botón «Crear video local» exporta una animación real en WebM desde tu navegador, sin servidor. «Generar video» requiere un motor de IA conectado.</p></section>
+<aside class="panel"><h2>Resultado</h2><div class="preview" id="preview">Tu video aparecerá acá cuando el motor termine la generación.</div><p id="status" class="status" role="status" aria-live="polite">Esperando una tarea.</p><a id="download" class="hidden" target="_blank" rel="noopener noreferrer">Descargar video generado ↓</a>
+<hr style="border:0;border-top:1px solid #ffffff18;margin:25px 0"><h2>Conectar motor de generación</h2><label for="endpoint">URL HTTPS del servidor</label><input id="endpoint" type="url" placeholder="https://tu-servidor.example.com"><p class="hint">El servidor debe aceptar POST /generate con JSON y responder con video_url (o url). Debe permitir CORS desde GitHub Pages. No ingreses claves privadas en esta página.</p><div class="actions"><button type="button" class="secondary" id="save">Guardar URL</button><button type="button" class="secondary" id="check">Probar conexión</button></div></aside></div>
+<footer>Agnes Studio · GitHub Pages aloja la interfaz, no el procesamiento de IA. No se incluyen claves ni servicios de pago.</footer></main>
+<script>
+(()=>{'use strict';const $=id=>document.getElementById(id);const key='agnes_backend_url_v1';$('endpoint').value=localStorage.getItem(key)||'';
+function base(){const u=$('endpoint').value.trim().replace(/\/+$/,'');if(!u||!/^https:\/\//i.test(u))throw Error('Configurá una URL HTTPS válida para el motor.');return u}
+function status(t){$('status').textContent=t}
+$('save').onclick=()=>{try{localStorage.setItem(key,base());status('URL guardada en este navegador.')}catch(e){status(e.message)}};
+$('demo').onclick=()=>{$('prompt').value='Un paisaje de Florianópolis al amanecer, olas suaves, movimiento de cámara cinematográfico, estilo realista.'};
+$('check').onclick=async()=>{try{status('Probando conexión…');const r=await fetch(base()+'/health',{signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('HTTP '+r.status);$('connection').textContent='● Motor conectado';status('Servidor accesible. La generación requiere que implemente POST /generate.')}catch(e){$('connection').textContent='● Motor no disponible';status('No se pudo conectar: '+e.message+'\nRevisá HTTPS, CORS y /health.')}};
+
+let localVideoUrl=null;
+$('local').onclick=async()=>{
+ const btn=$('local'),prompt=$('prompt').value.trim();
+ if(!prompt){status('Escribí primero el texto de tu video.');$('prompt').focus();return}
+ if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){status('Tu navegador no permite grabar video desde Canvas. Probá Chrome o Edge actualizado.');return}
+ const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));
+ if(!mime){status('Este navegador no permite exportar WebM.');return}
+ const format=$('format').value,duration=Number($('duration').value);
+ const dimensions=format==='9:16'?[540,960]:format==='1:1'?[720,720]:[960,540];
+ const canvas=document.createElement('canvas');canvas.width=dimensions[0];canvas.height=dimensions[1];
+ const ctx=canvas.getContext('2d'),stream=canvas.captureStream(24);
+ let recorder;try{recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:1800000})}catch(err){stream.getTracks().forEach(t=>t.stop());status('No se pudo iniciar la grabación: '+err.message);return}
+ const chunks=[];recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+ btn.disabled=true;$('generate').disabled=true;$('download').classList.add('hidden');
+ status('Creando animación local… No usa IA ni consume créditos.');
+ const start=performance.now(),lines=prompt.replace(/\s+/g,' ').match(/.{1,48}(?:\s|$)/g)||[prompt];
+ function draw(now){
+  const t=Math.min(1,(now-start)/(duration*1000)),w=canvas.width,h=canvas.height;
+  const bg=ctx.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#15102f');bg.addColorStop(0.55,'#43306b');bg.addColorStop(1,'#0b3150');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+  for(let i=0;i<16;i++){const x=(w*(i*0.173+0.05)+Math.sin(t*5+i)*w*.06)%w,y=(h*(i*.127+.03)+t*h*.13)%h;ctx.beginPath();ctx.arc(x,y,Math.max(6,w*.016)*(1+Math.sin(i+t*6)*.3),0,Math.PI*2);ctx.fillStyle='rgba(185,160,255,.12)';ctx.fill()}
+  ctx.fillStyle='#c7b7ff';ctx.font='bold '+Math.round(w*.037)+'px sans-serif';ctx.textAlign='center';ctx.fillText('✦ AGNES STUDIO',w/2,h*.14);
+  const fontSize=Math.round(w*(format==='9:16'?.052:.043));ctx.font='bold '+fontSize+'px sans-serif';ctx.fillStyle='#ffffff';ctx.textBaseline='middle';
+  const words=prompt.split(/\s+/),wrapped=[];let line='';
+  for(const word of words){const next=line?line+' '+word:word;if(ctx.measureText(next).width>w*.83&&line){wrapped.push(line);line=word}else line=next}if(line)wrapped.push(line);
+  const visible=wrapped.slice(0,7),step=fontSize*1.38,top=h*.51-(visible.length-1)*step/2;
+  ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=18;
+  visible.forEach((txt,i)=>ctx.fillText(txt,w/2,top+i*step));ctx.shadowBlur=0;
+  ctx.fillStyle='#bfaaff';ctx.fillRect(w*.1,h*.88,w*.8*t,Math.max(4,h*.007));
+  ctx.fillStyle='#d2d6eb';ctx.font=Math.round(w*.023)+'px sans-serif';ctx.fillText('Video animado local · sin IA',w/2,h*.94);
+  if(recorder.state==='recording'&&t<1)requestAnimationFrame(draw);
+  else if(recorder.state==='recording')recorder.stop();
+ }
+ recorder.onstop=()=>{stream.getTracks().forEach(t=>t.stop());if(localVideoUrl)URL.revokeObjectURL(localVideoUrl);const blob=new Blob(chunks,{type:mime});localVideoUrl=URL.createObjectURL(blob);const video=document.createElement('video');video.controls=true;video.playsInline=true;video.src=localVideoUrl;$('preview').replaceChildren(video);$('download').href=localVideoUrl;$('download').download='agnes-video.webm';$('download').classList.remove('hidden');status('Video local listo. Descargalo en formato WebM. Este modo anima tu texto: no genera escenas con IA.');btn.disabled=false;$('generate').disabled=false};
+ recorder.onerror=()=>{status('Error al grabar el video.');btn.disabled=false;$('generate').disabled=false;stream.getTracks().forEach(t=>t.stop())};
+ recorder.start();requestAnimationFrame(draw);
+};
+
+$('generator').onsubmit=async e=>{e.preventDefault();const btn=$('generate');try{const url=base();btn.disabled=true;status('Enviando solicitud al motor…');$('download').classList.add('hidden');const r=await fetch(url+'/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:$('prompt').value,aspect_ratio:$('format').value,duration:Number($('duration').value)})});let data;try{data=await r.json()}catch{throw Error('El servidor no devolvió JSON válido.')}if(!r.ok)throw Error(data.error||data.detail||'HTTP '+r.status);const video=data.video_url||data.url;if(video){const resolved=new URL(video,url+'/');if(!['https:','http:'].includes(resolved.protocol))throw Error('URL de video no válida');const el=document.createElement('video');el.controls=true;el.playsInline=true;el.src=resolved.href;$('preview').replaceChildren(el);$('download').href=resolved.href;$('download').classList.remove('hidden');status('Video generado correctamente.')}else if(data.job_id||data.id){status('Tarea aceptada: '+(data.job_id||data.id)+'. El motor respondió con un identificador; se necesita configurar su endpoint de seguimiento para mostrar el resultado.')}else{status('Respuesta recibida, pero no contiene video_url, url ni job_id. Revisá el contrato del servidor.')}}catch(err){status('No se pudo generar: '+err.message)}finally{btn.disabled=false}};
+})();
+</script></body></html>
