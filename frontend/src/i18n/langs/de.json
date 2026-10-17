@@ -528,6 +528,7 @@
   "mvSettings": "Musikvideo-Einstellungen",
   "mvSongLabel": "Song-Datei",
   "mvSongHint": "MP3, WAV, M4A, AAC, OGG, FLAC oder OPUS. Maximal 50 MB und 5 Minuten, mindestens 10 Sekunden.",
+  "mvSongTooLarge": "Die Songdatei ist größer als das Limit von {max} MB.",
   "mvChooseSong": "Song auswählen",
   "mvNoSong": "Keine Datei ausgewählt",
   "mvNeedSong": "Bitte wähle zuerst eine Song-Datei aus",

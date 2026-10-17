@@ -20,6 +20,11 @@ export const appState = reactive({
   apiKeySource: '' as string, // 'env' | 'config' | ''
   // v6.1 问题反馈：应用版本（诊断信息用，来自 /api/config.app_version）
   appVersion: '' as string,
+  // 歌曲上传上限（字节，来自 /api/config.max_song_bytes）：serverless 部署下
+  // 平台会先于应用拦截超限请求，前端需据此在提交前校验（0 = 未取到，按 50MB 兜底）
+  maxSongBytes: 0 as number,
+  // 是否 serverless（Vercel）运行时：/tmp 为临时存储，任务产物不持久
+  serverless: false as boolean,
   workspaces: [] as Workspace[],
   activeWorkspace: '' as string,
   workingDirSource: 'config' as string,

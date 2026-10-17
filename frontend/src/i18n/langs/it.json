@@ -528,6 +528,7 @@
   "mvSettings": "Impostazioni videoclip",
   "mvSongLabel": "File audio del brano",
   "mvSongHint": "MP3, WAV, M4A, AAC, OGG, FLAC o OPUS. Fino a 50 MB e 5 minuti, minimo 10 secondi.",
+  "mvSongTooLarge": "Il file della canzone supera il limite di {max} MB.",
   "mvChooseSong": "Scegli brano",
   "mvNoSong": "Nessun file selezionato",
   "mvNeedSong": "Scegli prima un file audio",

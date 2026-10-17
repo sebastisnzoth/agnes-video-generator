@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { t } from '@/i18n'
+import { t, tf } from '@/i18n'
 import { useTaskSubmit } from '@/composables/useTaskSubmit'
+import { appState } from '@/store'
 import WatermarkToggle from '@/components/shared/WatermarkToggle.vue'
 import PresetPicker from '@/components/presets/PresetPicker.vue'
 
@@ -45,6 +46,13 @@ async function submitMusicVideo() {
     taskType: 'music_video',
     buildForm: () => {
       if (!songFile.value) throw new Error(t('mvNeedSong'))
+      // 提交前体积校验：serverless（Vercel）部署对请求体有平台级硬上限，超限请求
+      // 根本到不了后端（返回无法解析的 HTML 413）。这里用后端下发的实际上限提前拦截，
+      // 给用户可读提示，而不是让他们撞上一个「未知错误」。
+      const maxBytes = appState.maxSongBytes || 50 * 1024 * 1024
+      if (songFile.value.size > maxBytes) {
+        throw new Error(tf('mvSongTooLarge', { max: Math.floor(maxBytes / (1024 * 1024)) }))
+      }
       // v7.2 歌手模式：photo 必须已选照片；ai 必须已填描述（none 跳过）
       if (form.singerMode === 'photo' && !singerFile.value) throw new Error(t('mvNeedPhoto'))
       if (form.singerMode === 'ai' && !form.singerPrompt.trim()) throw new Error(t('mvNeedPrompt'))
