@@ -26,6 +26,19 @@ permissions:
   contents: read
 
 jobs:
+  # ── 明文密钥门禁（最前置、最便宜）────────────────────────────────
+  # 背景：``.env.example`` 自带「示例文件，绝不要放入真实 Key」的注释，仍有一次
+  # 提交把三把真实 Key 填进去并推到公开仓库。模板文件照样会被 git add -A 提交。
+  # 这里在其它 job 之前扫一遍，命中即判红——成本几秒，代价却是公开凭据泄漏。
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan for plaintext API keys
+        run: python scripts/check_no_secrets.py
+
   i18n-check:
     # 1.8：多语言完整性前置检查（en 缺失硬阻断返回 2，其余语言缺失/占位符
     # 不一致列出提醒返回 1；与回归脚本回归前置门槛同一脚本）
