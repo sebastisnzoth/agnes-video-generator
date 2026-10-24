@@ -23,7 +23,10 @@ def test_worker_rejects_scene_clip_as_final_result(monkeypatch, tmp_path):
         def __init__(self, *args, **kwargs): pass
         def create(self, state): pass
         def load(self): return state
-    monkeypatch.setattr(worker, "materialize_state", lambda *_: (state, str(tmp_path)))
+    scratch = tmp_path / "private-media"
+    scratch.mkdir()
+    (scratch / "song.mp3").write_bytes(b"temporary")
+    monkeypatch.setattr(worker, "materialize_state", lambda *_: (state, str(scratch)))
     monkeypatch.setattr(worker, "TaskManager", FakeManager)
     monkeypatch.setattr(worker, "get_api_key", lambda: "fake")
     monkeypatch.setattr(worker.deps, "create_pipeline_for_type", lambda *_: object())
@@ -32,3 +35,4 @@ def test_worker_rejects_scene_clip_as_final_result(monkeypatch, tmp_path):
     monkeypatch.setattr(worker, "upload_file", lambda *_: pytest.fail("Never upload scene clip"))
     with pytest.raises(RuntimeError, match="final video artifact"):
         asyncio.run(worker.run_one({"id":"t1", "dir_name":"d1", "input":{}}))
+    assert not scratch.exists(), "Private temporary media must be removed on failure"
