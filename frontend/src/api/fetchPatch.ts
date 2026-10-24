@@ -16,6 +16,7 @@
  */
 
 import { UI_LANG_HEADER, getUiLang } from './langHeader'
+import { resolveApiUrl } from './backendOrigin'
 
 let installed = false
 
@@ -76,7 +77,7 @@ export function installFetchLangHeader(): void {
       return originalFetch(typeof input === 'string' ? routeApi(input) : input instanceof URL ? new URL(routeApi(input.toString())) : input, nextInit)
     } catch {
       // 拦截失败时不阻断请求，退回原始 fetch（宁可丢语言头也不打断业务）
-      return originalFetch(input as string | URL, init)
+      return originalFetch(typeof input === 'string' ? resolveApiUrl(input) : input as URL, init)
     }
   }
 
