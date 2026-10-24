@@ -65,3 +65,8 @@ Por tarea: fecha | SHA | archivos | ejecución | evidencia URL/log/video | estad
 - `core/remote_queue.py` signed URL helper errors on missing URL and resolves relative URLs properly (commit `ab741f8`).
 - Regression tests added: `tests/test_music_worker_safety.py` (commit `0feae5e`).
 - **Warning:** converting private `supabase://` reference into a short-lived signed download link still needs an authenticated task/artifact API, so do not expose queue rows directly to public users. No verified video generation; CI not executed; do not merge or deploy.
+
+## 2026-10-24 — corrección de transferencia binaria de audio/video
+- `core/remote_queue.py`: subida a Supabase Storage ahora utiliza streaming desde descriptor de archivo y MIME detectado (`audio/mpeg`, `video/mp4`, etc.), evitando `application/json` y lectura total en RAM. Commit `c2aa980547d8c3d8f51ba7ae5fb9e55342f7d752`.
+- `tests/test_remote_queue.py`: regresión con HTTP simulado para asegurar MIME, bytes transmitidos y referencia persistente. Commit `04f02ee86ad9e51ae93c39274ee740af6e64aff5`.
+- **Sin evidencia de validación E2E o CI para estos commits**. Persisten los bloqueos críticos de autenticación, acceso privado al MP4, workers ejecutándose en hosting persistente, 401 de Agnes y generación real. Ningún despliegue ni fusión realizados.
