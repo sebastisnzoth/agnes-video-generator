@@ -17,6 +17,7 @@
 
 import { UI_LANG_HEADER, getUiLang } from './langHeader'
 import { resolveApiUrl } from './backendOrigin'
+import { resolveApiUrl } from './backendOrigin'
 
 let installed = false
 
