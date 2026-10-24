@@ -52,6 +52,7 @@ from models.task import (
     TaskType,
     VideoMode,
 )
+from core import remote_queue
 from web import app_state, deps, helpers
 from web.log_safe import safe_log
 
@@ -928,6 +929,22 @@ async def create_music_video_task(
         # v7.0（issue #64）：任务级 UI 语言快照
         ui_language=get_current_lang(),
     )
+
+    # A serverless request must hand the complete state (including uploaded files)
+    # to durable storage before returning. Never start an in-process pipeline here.
+    if remote_queue.enabled():
+        try:
+            await asyncio.to_thread(remote_queue.enqueue_state, state, dir_name)
+        except Exception:
+            _unlink_quietly(song_path)
+            if singer_photo_path:
+                _unlink_quietly(singer_photo_path)
+            logger.exception("[MusicVideo] Remote enqueue failed: %s", safe_log(task_id))
+            raise HTTPException(status_code=503, detail="Music video queue temporarily unavailable")
+        _unlink_quietly(song_path)
+        if singer_photo_path:
+            _unlink_quietly(singer_photo_path)
+        return {"ok": True, "task_id": task_id, "dir_name": dir_name}
 
     pipeline = deps.create_pipeline_for_type(TaskType.MUSIC_VIDEO, api_key, task_id, dir_name)
     app_state.active_pipelines[task_id] = pipeline
