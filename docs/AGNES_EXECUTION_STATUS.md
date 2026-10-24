@@ -91,3 +91,10 @@ Por tarea: fecha | SHA | archivos | ejecución | evidencia URL/log/video | estad
 - `tests/test_music_worker_safety.py` actualizó expectativas de error para aceptar el mensaje de cola durable PostgreSQL/Supabase; commit `e292306f`.
 - `core/postgres_queue.py` añadió `initialize_schema()` idempotente, con comprobación de `current_database() = agnes_music_video_db` antes de crear tabla e índice; commit `40f0d47`.
 - IMPORTANTE: la función NO ha sido ejecutada contra Render. Requiere conexión de base segura y prueba de migración real. Tests de este cambio no ejecutados; la PR no está lista para merge.
+
+## 2026-10-24 — P0: worker cleanup y verificación de infraestructura
+- `worker.py`: ahora se cancelan los observadores de progreso y se borra el directorio temporal de medios tanto tras éxito como tras excepción (commit `57a174c0f251bef8d55d8b8b74dc13d7300c4695`).
+- `tests/test_music_worker_safety.py`: se agregó regresión de eliminación de archivos privados después de fallo del pipeline (commit `e59e05d3d38f0e7b92ca42bde8b0dbe96e95a340`).
+- Render PostgreSQL de Agnes `dpg-dbe6252vcj2c73br0frg-a` sigue disponible, pero schema SQL no aplicado ni conexión privada probada.
+- El runner local no puede resolver github.com y carece de `edge_tts`/`psycopg`; no se ejecutó CI ni prueba E2E para estos commits.
+- Almacenamiento privado sigue sin habilitar por 403 de Vercel; generación IA sigue sin validación de credencial. No desplegar ni fusionar a producción.
