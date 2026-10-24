@@ -1,6 +1,6 @@
 """Persistent task queue and artifact storage for Vercel/worker deployments."""
 from __future__ import annotations
-import json, os, sqlite3, tempfile, urllib.parse, uuid
+import json, mimetypes, os, sqlite3, tempfile, urllib.parse, uuid
 from pathlib import Path
 from typing import Any
 import requests
@@ -108,9 +108,14 @@ def _storage():
 def upload_file(path,key_path):
     if not enabled(): return Path(path).resolve().as_uri()
     url,key,bucket=_storage()
-    with open(path,"rb") as f:data=f.read()
-    r=requests.post(f"{url}/storage/v1/object/{urllib.parse.quote(bucket)}/{urllib.parse.quote(key_path,safe='/')}",
-                    headers={**_headers(key),"x-upsert":"true"},data=data,timeout=120); r.raise_for_status()
+    media_type=mimetypes.guess_type(path)[0] or "application/octet-stream"
+    headers={**_headers(key,media_type),"x-upsert":"true"}
+    object_path=urllib.parse.quote(bucket,safe="")+"/"+urllib.parse.quote(key_path,safe="/")
+    # Stream large audio/video uploads instead of loading entire files into memory.
+    with open(path,"rb") as stream:
+        r=requests.post(f"{url}/storage/v1/object/{object_path}",
+                        headers=headers,data=stream,timeout=120)
+    r.raise_for_status()
     return f"supabase://{bucket}/{key_path}"
 
 def download_artifact(ref,destination):
