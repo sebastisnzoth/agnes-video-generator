@@ -49,3 +49,35 @@ Prohibido: tocar UGO, comprometer secretos, simular generación real, ejecutar v
 ## Handoff
 
 Leer este archivo, `AGENTS.md`, `docs/AGNES_EXECUTION_STATUS.md` y `docs/AGNES_RELEASE_CHECKLIST.md`. Continuar el primer gate no verificado y actualizar evidencia tras cada paso.
+
+
+## Referencia funcional aprobada: LyricEdits.ai (2026-10-23)
+
+Sitio de referencia: https://lyricedits.ai/ . Tomar sus **flujos y capacidades de producto** como benchmark, no copiar código, identidad gráfica, marca ni contenidos propietarios.
+
+### Recorrido objetivo del usuario
+1. Subir canción y ver validación y onda de audio.
+2. Transcribir letra y alinear líneas temporalmente; permitir corregir texto y tiempos.
+3. Subir imagen propia autorizada del cantante como referencia persistente y definir otros personajes opcionales.
+4. Crear historia, estilo visual y storyboard editable por escenas/tomas.
+5. Generar vistas previas económicas antes de gastar recursos en clips finales.
+6. Editar las tomas: cambiar orden, texto, duración, imágenes y estilo; regenerar solo la toma modificada.
+7. Usar un editor web con reproductor, timeline de audio/video, letras, transiciones y estados de procesamiento.
+8. Exportar MP4 con canción original para 16:9 y 9:16; 1:1 opcional.
+9. Retomar el proyecto en cualquier navegador, con Mac apagada.
+
+### Priorización y límites
+- **Primera entrega vertical**: canción + foto -> escenas -> MP4 real; sin esto no se declara MVP.
+- **Paridad funcional básica con LyricEdits**: letras editables, storyboard, editor de tomas y timeline + exportación; cada función requiere prueba de navegador, persistencia y regeneración sin perder ediciones.
+- **Después del lanzamiento base**: lip-sync avanzado, exportación a Premiere/DaVinci/Final Cut, edición profesional avanzada y catálogos de modelos; no bloquee la prueba básica de MP4.
+- Mantener identidad visual propia de Agnes; no clonar propiedad intelectual ajena.
+- Analizar y registrar consumo/costos por generación; 'prueba gratuita' de terceros no equivale a backend gratis/ilimitado.
+- No asegurar 'lip sync', consistencia facial total, exactitud absoluta de transcripción o respuesta instantánea sin evidencia real.
+
+### Criterios de aceptación adicionales
+- El usuario puede corregir una línea de letra y su posición en la línea de tiempo, guardar y volver a abrir.
+- Puede sustituir una toma sin recalcular todo el proyecto ni perder la canción.
+- El storyboard y las escenas se mantienen al recargar el navegador.
+- El editor refleja estados del worker, errores recuperables y URLs privadas autorizadas.
+- El MP4 reproduce la canción original, la duración coincide con los límites de tolerancia definidos en pruebas, y todos los medios del proyecto son recuperables.
+
