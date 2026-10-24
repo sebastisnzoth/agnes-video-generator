@@ -6,13 +6,13 @@ import worker
 
 def test_worker_fails_closed_without_remote_queue(monkeypatch):
     monkeypatch.setattr(worker, "enabled", lambda: False)
-    with pytest.raises(RuntimeError, match="supabase"):
+    with pytest.raises(RuntimeError, match="durable queue"):
         asyncio.run(worker.main())
 
 def test_worker_fails_closed_when_backend_is_local(monkeypatch):
     monkeypatch.setattr(worker, "enabled", lambda: True)
     monkeypatch.delenv("AGNES_TASK_BACKEND", raising=False)
-    with pytest.raises(RuntimeError, match="supabase"):
+    with pytest.raises(RuntimeError, match="durable queue"):
         asyncio.run(worker.main())
 
 def test_worker_rejects_scene_clip_as_final_result(monkeypatch, tmp_path):
