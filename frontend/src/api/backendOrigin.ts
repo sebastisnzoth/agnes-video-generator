@@ -1,8 +1,14 @@
 /** Resolve API requests when the frontend is served from GitHub Pages. */
 export function resolveApiUrl(path: string): string {
-  const origin = (import.meta.env.VITE_AGNES_BACKEND_URL || '').trim().replace(/\/+$/, '')
-  // Reject HTTP, embedded credentials, paths and query parameters in the public API origin.
-  // If misconfigured, same-origin API calls fail visibly instead of leaking requests.
-  if (!/^https:\/\/[^/]+$/i.test(origin)) return path
-  return /^\/api(?:\/|\?|$)/.test(path) ? origin + path : path
+  const configured = (import.meta.env.VITE_AGNES_BACKEND_URL || '').trim()
+  if (!/^\/api(?:\/|\?|$)/.test(path) || !configured) return path
+  try {
+    const backend = new URL(configured)
+    // Never forward browser requests to HTTP or credential-bearing/misconfigured URLs.
+    if (backend.protocol !== 'https:' || backend.username || backend.password
+      || backend.pathname !== '/' || backend.search || backend.hash) return path
+    return backend.origin + path
+  } catch {
+    return path
+  }
 }
