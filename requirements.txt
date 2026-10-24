@@ -44,3 +44,6 @@ faster-whisper>=1.2.0,<2.0.0
 # Catalina: PyAV 16.x requires macOS 11; allow 13.x (macosx_10_13_x86_64 wheels).
 # Newer macOS/Linux installations may still select newer compatible wheels.
 av>=13.0.0,<17.0.0
+
+# Agnes Render PostgreSQL durable queue
+psycopg[binary]>=3.2,<4.0
