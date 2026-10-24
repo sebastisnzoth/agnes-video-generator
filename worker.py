@@ -50,8 +50,8 @@ async def run_one(row):
     log.info("completed %s",task_id)
 
 async def main():
-    if not enabled() or os.getenv('AGNES_TASK_BACKEND', '').lower() != 'supabase':
-        raise RuntimeError('Cloud worker requires AGNES_TASK_BACKEND=supabase; local SQLite is not a durable queue')
+    if not enabled() or os.getenv('AGNES_TASK_BACKEND', '').lower() not in ('supabase','postgres'):
+        raise RuntimeError('Cloud worker requires a durable queue: AGNES_TASK_BACKEND=postgres or supabase')
     while True:
         row=claim_next_task()
         if not row:
