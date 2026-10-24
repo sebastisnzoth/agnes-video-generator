@@ -118,6 +118,8 @@ def claim_next_task():
     return get_task(row[0])
 
 def _storage():
+    if os.getenv("AGNES_TASK_BACKEND","").lower()=="postgres" and os.getenv("AGNES_ASSET_BACKEND","").lower()!="supabase":
+        raise RuntimeError("Private asset storage is not configured for Agnes PostgreSQL backend")
     url,key=_supabase(); return url,key,os.getenv("SUPABASE_STORAGE_BUCKET","agnes-videos")
 
 def upload_file(path,key_path):
