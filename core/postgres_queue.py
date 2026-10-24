@@ -12,6 +12,33 @@ def _connect():
         raise RuntimeError("AGNES_DATABASE_URL is missing")
     return connect(dsn, row_factory=dict_row, connect_timeout=10)
 
+def initialize_schema():
+    """Apply only the Agnes schema after verifying the database identity."""
+    expected = "agnes_music_video_db"
+    with _connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT current_database() AS name")
+            if cur.fetchone()["name"] != expected:
+                raise RuntimeError("Refusing to migrate a database that is not dedicated to Agnes")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS public.tasks (
+                  id text PRIMARY KEY, user_id text NOT NULL DEFAULT '',
+                  type text NOT NULL,
+                  status text NOT NULL CHECK(status IN ('queued','processing','completed','failed','cancelled')),
+                  progress double precision NOT NULL DEFAULT 0,
+                  input jsonb NOT NULL,
+                  dir_name text NOT NULL,
+                  result_url text NOT NULL DEFAULT '',
+                  error text NOT NULL DEFAULT '',
+                  created_at timestamptz NOT NULL DEFAULT now(),
+                  started_at timestamptz,
+                  completed_at timestamptz,
+                  updated_at timestamptz NOT NULL DEFAULT now()
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS agnes_tasks_status_created ON public.tasks(status,created_at)")
+
+
 def create_task(task_id, task_type, input_data, dir_name, user_id=""):
     with _connect() as conn:
         with conn.cursor() as cur:
