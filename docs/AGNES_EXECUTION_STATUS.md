@@ -58,3 +58,10 @@ Por tarea: fecha | SHA | archivos | ejecución | evidencia URL/log/video | estad
 - `web/routes/task_creation_routes.py`: para `remote_queue.enabled()` serializa y sube el estado/archivos por `asyncio.to_thread(remote_queue.enqueue_state, ...)`, devuelve éxito solo tras persistencia; elimina archivos temporales y retorna 503 si falla. Commit `0d138aa6f5b625317322c408bcf83c9a9f4df415`.
 - `tests/test_music_video_remote_queue.py`: regresión de encolado real frente a ejecución local y limpieza/fallo de almacenamiento. Commit `d02779171b72387c130fd44c3f51c7bedfb84d23`.
 - **Verificación pendiente:** CI/pytest no ejecutados para estos cambios; no se ha probado Supabase real, worker, autenticación por usuario ni MP4, y faltan conectar endpoints de estado/artefactos a la cola. No se debe fusionar ni desplegar.
+
+## 2026-10-24 — worker output safety hotfix
+- `worker.py` now requires `final_video_file` to exist before upload, instead of selecting an arbitrary .mp4/.webm from state; it stores private `supabase://` object reference rather than an expiring seven-day download URL (commits `76d81ce`, `1f21241`).
+- Worker `main` fails fast unless `AGNES_TASK_BACKEND=supabase`, avoiding accidental local SQLite polling.
+- `core/remote_queue.py` signed URL helper errors on missing URL and resolves relative URLs properly (commit `ab741f8`).
+- Regression tests added: `tests/test_music_worker_safety.py` (commit `0feae5e`).
+- **Warning:** converting private `supabase://` reference into a short-lived signed download link still needs an authenticated task/artifact API, so do not expose queue rows directly to public users. No verified video generation; CI not executed; do not merge or deploy.
