@@ -30,6 +30,19 @@ describe('Agnes backend origin for GitHub Pages', () => {
     )
   })
 
+  it('does not forward API requests to unsafe backend URLs', () => {
+    for (const url of [
+      'http://insecure.example.org',
+      'https://user:pass@api.example.org',
+      'https://api.example.org/private',
+      'https://api.example.org/?token=secret',
+      'not-a-url',
+    ]) {
+      vi.stubEnv('VITE_AGNES_BACKEND_URL', url)
+      expect(resolveApiUrl('/api/tasks')).toBe('/api/tasks')
+    }
+  })
+
   it('preserves paths outside /api/', () => {
     vi.stubEnv('VITE_AGNES_BACKEND_URL', 'https://agnes-api.example.org')
     expect(resolveApiUrl('https://another.example/video.mp4')).toBe(
