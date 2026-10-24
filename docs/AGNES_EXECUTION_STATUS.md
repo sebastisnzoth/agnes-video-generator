@@ -38,3 +38,9 @@ Por tarea: fecha | SHA | archivos | ejecución | evidencia URL/log/video | estad
 - Se agregó prueba `frontend/src/api/fetchPatch.backend.test.ts` para la ruta directa. Commits: `8cef45a`, `945c377`, `65419d3`, `196c623`.
 - **Estado:** cambios implementados en rama; CI/compilación y E2E todavía sin ejecutar/verificar. No hay despliegue nuevo.
 - **Bloqueo:** configurar backend HTTPS funcional, CORS `AGNES_CORS_ORIGINS`, credencial válida y worker remoto; sin ellos Pages no produce MP4.
+
+## 2026-10-24 — corrección comprobada en código
+- Se detectó import duplicado de `resolveApiUrl` en `frontend/src/api/fetchPatch.ts`, introducido en la rama; corregido en `57b9ac37919134accac8b4d32975d9dc786bef53`.
+- Lectura posterior de GitHub verificó import único, ausencia del helper `routeApi` obsoleto y uso de `resolveApiUrl` para Request, string y fallback.
+- No se observan ejecuciones de GitHub Actions en la rama PR #12 (consulta devolvió 0). La instalación local `npm ci --offline` no pudo ejecutarse porque la copia ZIP carece de package-lock en frontend; NO equivale a aprobación de build ni pruebas.
+- Siguiente gate: ejecutar CI con checkout completo y lockfile, corregir fallos, probar pipeline musical con credencial segura; no fusionar/desplegar antes.
