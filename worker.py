@@ -1,7 +1,7 @@
 """Persistent Agnes video worker. Run as a VM/container process, never as a Vercel request."""
 from __future__ import annotations
 import asyncio,logging,os
-from core.remote_queue import claim_next_task,materialize_state,update_task,upload_file
+from core.remote_queue import claim_next_task,materialize_state,update_task,upload_file,enabled
 from core.config import get_api_key
 from core.task_manager import TaskManager
 from web import deps
@@ -50,6 +50,8 @@ async def run_one(row):
     log.info("completed %s",task_id)
 
 async def main():
+    if not enabled() or os.getenv('AGNES_TASK_BACKEND', '').lower() != 'supabase':
+        raise RuntimeError('Cloud worker requires AGNES_TASK_BACKEND=supabase; local SQLite is not a durable queue')
     while True:
         row=claim_next_task()
         if not row:
