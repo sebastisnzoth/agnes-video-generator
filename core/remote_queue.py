@@ -6,7 +6,7 @@ from typing import Any
 import requests
 
 def enabled() -> bool:
-    return os.getenv("AGNES_TASK_BACKEND","").lower()=="supabase" or os.getenv("VERCEL")=="1"
+    return os.getenv("AGNES_TASK_BACKEND","").lower() in ("supabase", "postgres") or os.getenv("VERCEL")=="1"
 
 def _supabase():
     url=os.getenv("SUPABASE_URL","").rstrip("/")
@@ -28,6 +28,9 @@ def _db():
     return p
 
 def create_task(task_id,task_type,input_data,dir_name,user_id=""):
+    if os.getenv("AGNES_TASK_BACKEND","").lower()=="postgres":
+        from core import postgres_queue
+        return postgres_queue.create_task(task_id,task_type,input_data,dir_name,user_id)
     from datetime import datetime,timezone
     now=datetime.now(timezone.utc).isoformat()
     payload={"id":task_id,"user_id":user_id,"type":task_type,"status":"queued","progress":0,
@@ -43,6 +46,9 @@ def create_task(task_id,task_type,input_data,dir_name,user_id=""):
     return payload
 
 def get_task(task_id):
+    if os.getenv("AGNES_TASK_BACKEND","").lower()=="postgres":
+        from core import postgres_queue
+        return postgres_queue.get_task(task_id)
     if enabled():
         url,key=_supabase()
         r=requests.get(f"{url}/rest/v1/tasks",headers=_headers(key),
@@ -54,6 +60,9 @@ def get_task(task_id):
     d=dict(row); d["input"]=json.loads(d.pop("input_json")); return d
 
 def list_tasks(limit=0,offset=0,status=""):
+    if os.getenv("AGNES_TASK_BACKEND","").lower()=="postgres":
+        from core import postgres_queue
+        return postgres_queue.list_tasks(limit,offset,status)
     if enabled():
         url,key=_supabase(); params={"select":"*","order":"created_at.desc"}
         if status: params["status"]="in.("+",".join(x.strip() for x in status.split(",") if x.strip())+")"
@@ -74,6 +83,9 @@ def list_tasks(limit=0,offset=0,status=""):
     return out,total
 
 def update_task(task_id,**fields):
+    if os.getenv("AGNES_TASK_BACKEND","").lower()=="postgres":
+        from core import postgres_queue
+        return postgres_queue.update_task(task_id,**fields)
     from datetime import datetime,timezone
     fields["updated_at"]=datetime.now(timezone.utc).isoformat()
     if enabled():
@@ -89,6 +101,9 @@ def update_task(task_id,**fields):
     return get_task(task_id)
 
 def claim_next_task():
+    if os.getenv("AGNES_TASK_BACKEND","").lower()=="postgres":
+        from core import postgres_queue
+        return postgres_queue.claim_next_task()
     if enabled():
         url,key=_supabase()
         r=requests.post(f"{url}/rest/v1/rpc/claim_next_task",headers=_headers(key),json={},timeout=20)
