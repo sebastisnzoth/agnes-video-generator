@@ -1,7 +1,7 @@
 """Persistent Agnes video worker. Run as a VM/container process, never as a Vercel request."""
 from __future__ import annotations
 import asyncio,logging,os
-from core.remote_queue import claim_next_task,materialize_state,update_task,upload_file,signed_url
+from core.remote_queue import claim_next_task,materialize_state,update_task,upload_file
 from core.config import get_api_key
 from core.task_manager import TaskManager
 from web import deps
@@ -43,10 +43,10 @@ async def run_one(row):
         watcher.cancel()
         try: await watcher
         except asyncio.CancelledError: pass
-    final=tm.load() or state; output=_find_output(final.model_dump(mode="python"))
-    if not output: raise RuntimeError("Pipeline completed without a local video artifact")
+    final=tm.load() or state; output=getattr(final,"final_video_file","")
+    if not output or not os.path.isfile(output): raise RuntimeError("Pipeline completed without a final video artifact")
     ref=upload_file(output,f"tasks/{task_id}/result/{os.path.basename(output)}")
-    update_task(task_id,status="completed",progress=1,result_url=signed_url(ref),error="",completed_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat())
+    update_task(task_id,status="completed",progress=1,result_url=ref,error="",completed_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat())
     log.info("completed %s",task_id)
 
 async def main():
