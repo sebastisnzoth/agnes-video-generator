@@ -31,3 +31,10 @@ Por tarea: fecha | SHA | archivos | ejecución | evidencia URL/log/video | estad
 - Commits de implementación: `b7423bdb4ab9acf5063ca972195e6f2a42aac5ea`, `b31cde128e3a4014f1c2b65d5933e23db680e12e`.
 - **Sin CI comprobado todavía:** no se observó workflow ejecutado para esta rama. No se fusionó ni desplegó.
 - **Pendientes:** variable pública `AGNES_BACKEND_URL` de GitHub Actions apuntando a API real, CORS del backend, autenticación y worker persistente; GitHub Pages sin backend aún no genera videos.
+
+## Actualización 2026-10-24 — puente completo Pages/API
+- GitHub Pages workflow ahora bloquea build sin `AGNES_BACKEND_URL` HTTPS público configurado (`ff532ddd`).
+- Se centralizó `resolveApiUrl` en `frontend/src/api/backendOrigin.ts`; `api/index.ts` y `api/fetchPatch.ts` usan ese resolver para enrutar tanto llamadas del cliente como los `fetch('/api/...')` directos de componentes.
+- Se agregó prueba `frontend/src/api/fetchPatch.backend.test.ts` para la ruta directa. Commits: `8cef45a`, `945c377`, `65419d3`, `196c623`.
+- **Estado:** cambios implementados en rama; CI/compilación y E2E todavía sin ejecutar/verificar. No hay despliegue nuevo.
+- **Bloqueo:** configurar backend HTTPS funcional, CORS `AGNES_CORS_ORIGINS`, credencial válida y worker remoto; sin ellos Pages no produce MP4.
