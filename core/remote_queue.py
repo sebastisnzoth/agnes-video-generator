@@ -126,7 +126,9 @@ def signed_url(ref,expires=604800):
     r=requests.post(f"{url}/storage/v1/object/sign/{urllib.parse.quote(bucket)}/{urllib.parse.quote(key_path,safe='/')}",
                     headers=_headers(key),json={"expiresIn":expires},timeout=20); r.raise_for_status()
     s=r.json().get("signedURL") or r.json().get("signedUrl")
-    return s if s and s.startswith("http") else url+s
+    if not s:
+        raise RuntimeError("Storage did not return a signed URL")
+    return s if s.startswith("https://") else urllib.parse.urljoin(url+"/",s)
 
 def _rewrite(value,task_id,prefix=""):
     if isinstance(value,dict): return {k:_rewrite(v,task_id,f"{prefix}_{k}") for k,v in value.items()}
