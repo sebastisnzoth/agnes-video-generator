@@ -86,3 +86,8 @@ Por tarea: fecha | SHA | archivos | ejecución | evidencia URL/log/video | estad
 - No se ejecutaron aquí npm/pytest integrales contra el checkout de la rama; el contenedor actual carece de acceso DNS a github.com. No afirmar CI verde.
 - **Bloqueos externos verificados:** PostgreSQL dedicado en Render disponible, pero Render MCP no puede conectar por allowlist; Supabase sin espacio para nuevo proyecto gratuito; crear Vercel Blob privado devuelve 403; falta proveedor IA con credencial válida. No se deben modificar recursos ajenos, abrir DB pública ni subir fotos/canciones a un bucket público.
 - **Bloqueos de seguridad funcional:** lectura remota todavía requiere autenticación/autorización por propietario; no hay endpoint de descarga temporal autenticada del MP4, ni almacenamiento privado operativo, ni worker desplegado y probado. No apto para publicar producción ni fusionar como solución completa.
+
+## 2026-10-24 — correcciones de compatibilidad PostgreSQL
+- `tests/test_music_worker_safety.py` actualizó expectativas de error para aceptar el mensaje de cola durable PostgreSQL/Supabase; commit `e292306f`.
+- `core/postgres_queue.py` añadió `initialize_schema()` idempotente, con comprobación de `current_database() = agnes_music_video_db` antes de crear tabla e índice; commit `40f0d47`.
+- IMPORTANTE: la función NO ha sido ejecutada contra Render. Requiere conexión de base segura y prueba de migración real. Tests de este cambio no ejecutados; la PR no está lista para merge.
