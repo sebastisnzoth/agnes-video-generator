@@ -70,3 +70,12 @@ Por tarea: fecha | SHA | archivos | ejecución | evidencia URL/log/video | estad
 - `core/remote_queue.py`: subida a Supabase Storage ahora utiliza streaming desde descriptor de archivo y MIME detectado (`audio/mpeg`, `video/mp4`, etc.), evitando `application/json` y lectura total en RAM. Commit `c2aa980547d8c3d8f51ba7ae5fb9e55342f7d752`.
 - `tests/test_remote_queue.py`: regresión con HTTP simulado para asegurar MIME, bytes transmitidos y referencia persistente. Commit `04f02ee86ad9e51ae93c39274ee740af6e64aff5`.
 - **Sin evidencia de validación E2E o CI para estos commits**. Persisten los bloqueos críticos de autenticación, acceso privado al MP4, workers ejecutándose en hosting persistente, 401 de Agnes y generación real. Ningún despliegue ni fusión realizados.
+
+## 2026-10-24 — cola Render PostgreSQL + aislamiento de activos
+- Base Agnes propia en Render PostgreSQL `dpg-dbe6252vcj2c73br0frg-a`, plan gratuito, estado `available` verificado; caduca 2026-11-23. No se tocó ninguna base existente.
+- Supabase no permitió proyecto gratuito nuevo por límite 2/2. Vercel Blob privado respondió 403 forbidden. Ningún bucket público se configuró.
+- `core/postgres_queue.py`: crear/consultar/listar/actualizar/claim tareas con SQL parametrizado, `FOR UPDATE SKIP LOCKED`, conexión a `AGNES_DATABASE_URL` (commit `5e8d932`).
+- `core/remote_queue.py`: delega persistencia al driver postgres si `AGNES_TASK_BACKEND=postgres` y falla cerrado al subir archivos si `AGNES_ASSET_BACKEND` privado no está configurado (commits `891b074`, `93f1e14`).
+- `worker.py`: permite PostgreSQL además de Supabase (`9f301e7`). `requirements.txt`: psycopg 3 agregado (`9ca0d92`). `render_postgres_schema.sql` agregado (`def24c0`). Tests sin ejecutar `tests/test_render_postgres_queue.py` (`cbbf41f`).
+- Render MCP read-only SQL no logró conectarse: su IP no está permitida en la allowlist del PostgreSQL. No se aplicó migración SQL ni se verificó escritura de tareas. Restringir acceso de red; no abrir públicamente para forzar un test.
+- Bloqueo real de entrega: almacenamiento privado compatible con worker, credencial válida Agnes AI, ejecución de migración PostgreSQL, despliegue de worker y pruebas CI/E2E. No se desplegó ni fusionó.
