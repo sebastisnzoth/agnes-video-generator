@@ -23,3 +23,11 @@ Revisar los nueve archivos de PR #1 y sus pruebas contra `master`. Ejecutar prue
 
 ## Actualización obligatoria
 Por tarea: fecha | SHA | archivos | ejecución | evidencia URL/log/video | estado HECHO/PENDIENTE/BLOQUEADO/DESCONOCIDO | próximo paso. No cambiar estados sin evidencias.
+
+
+## Actualización 2026-10-24 — GitHub Pages
+- **Corregido en rama, pendiente de pruebas:** `frontend/src/api/index.ts` ahora enruta peticiones a `VITE_AGNES_BACKEND_URL` cuando está configurado, y preserva el comportamiento relativo de Vercel/local si no lo está. Incluye URLs de artefactos.
+- **Pruebas añadidas:** `frontend/src/api/backendOrigin.test.ts` cubre URL configurada, `submitMusicVideo`, URL de artefactos y modo sin backend configurado.
+- Commits de implementación: `b7423bdb4ab9acf5063ca972195e6f2a42aac5ea`, `b31cde128e3a4014f1c2b65d5933e23db680e12e`.
+- **Sin CI comprobado todavía:** no se observó workflow ejecutado para esta rama. No se fusionó ni desplegó.
+- **Pendientes:** variable pública `AGNES_BACKEND_URL` de GitHub Actions apuntando a API real, CORS del backend, autenticación y worker persistente; GitHub Pages sin backend aún no genera videos.
