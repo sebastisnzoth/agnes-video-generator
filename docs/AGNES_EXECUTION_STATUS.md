@@ -44,3 +44,11 @@ Por tarea: fecha | SHA | archivos | ejecución | evidencia URL/log/video | estad
 - Lectura posterior de GitHub verificó import único, ausencia del helper `routeApi` obsoleto y uso de `resolveApiUrl` para Request, string y fallback.
 - No se observan ejecuciones de GitHub Actions en la rama PR #12 (consulta devolvió 0). La instalación local `npm ci --offline` no pudo ejecutarse porque la copia ZIP carece de package-lock en frontend; NO equivale a aprobación de build ni pruebas.
 - Siguiente gate: ejecutar CI con checkout completo y lockfile, corregir fallos, probar pipeline musical con credencial segura; no fusionar/desplegar antes.
+
+## 2026-10-24 — pruebas ejecutadas y corrección de seguridad
+- PR #12 HEAD previo: `47a7bc072b5b76df2d47846f61e722e36414fccc`; `master` sigue en `9bb34f1` según consulta.
+- `frontend/src/api/backendOrigin.ts`: validación de URL pública mediante `URL`, exigiendo HTTPS, sin credenciales incrustadas, sin pathname no raíz ni query/hash. Commits finales `860a9131`. `frontend/src/api/backendOrigin.test.ts`: regresión para destinos inseguros, commit `db841395`.
+- **Prueba real intentada (NO PASA):** `npm ci --offline --ignore-scripts --no-audit --no-fund` en ZIP `AGNES-MUSICAL.zip` (con `frontend/package-lock.json`) falló `ENOTCACHED` para `yocto-queue-1.2.2.tgz`. El problema no es falta de lockfile; es ausencia de dependencias en caché sin acceso a npm registry.
+- **Prueba real intentada (NO PASA):** `PYTHONPATH=. python -m pytest tests/test_music_video_timeline.py tests/test_music_video_lyrics.py -q --disable-warnings --maxfail=1` falló durante importación por `ModuleNotFoundError: No module named 'edge_tts'`. No implica que los tests funcionales estén fallando; todavía no pudieron arrancar.
+- No se comprobó CI de GitHub para esta rama, ni generación real, ni despliegue. Mantener ambas PR draft.
+- Próximo paso verificable: resolver dependencias en entorno con acceso de red (Actions / runner autorizado), ejecutar `npm ci && npm test && npm run build` y suite Pytest; integrar la ruta musical con el worker tras aprobar gates.
