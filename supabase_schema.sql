@@ -14,7 +14,7 @@ begin
  if claimed.id is null then return; end if;
  update public.tasks set status='processing',started_at=now(),updated_at=now() where id=claimed.id returning * into claimed;
  return next claimed;
-end; $$;
+end; $;
 
 revoke all on function public.claim_next_task() from public, anon, authenticated;
 grant execute on function public.claim_next_task() to service_role;
