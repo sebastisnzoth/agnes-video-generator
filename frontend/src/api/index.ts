@@ -8,18 +8,13 @@
 // 整个生命周期语种一致。
 import type { GalleryItem, Preset } from '@/types'
 import { withUiLangHeader } from './langHeader'
+import { resolveApiUrl } from './backendOrigin'
+export { resolveApiUrl } from './backendOrigin'
 
 /**
  * 内部 fetch 包装：统一注入 UI 语言头。所有后端调用（含 FormData 上传）
  * 都必须走这里，别再直接 ``fetch(url, options)``。
  */
-export function resolveApiUrl(path: string): string {
-  // Pages serves static files; its API is on a separately configured HTTPS origin.
-  // Vercel and local development retain same-origin paths when unset.
-  const origin = (import.meta.env.VITE_AGNES_BACKEND_URL || '').trim().replace(/\/+$/, '')
-  return origin && path.startsWith('/api/') ? origin + path : path
-}
-
 function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   return fetch(resolveApiUrl(url), { ...options, headers: withUiLangHeader(options.headers) })
 }
