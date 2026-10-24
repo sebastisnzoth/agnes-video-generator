@@ -52,3 +52,9 @@ Por tarea: fecha | SHA | archivos | ejecución | evidencia URL/log/video | estad
 - **Prueba real intentada (NO PASA):** `PYTHONPATH=. python -m pytest tests/test_music_video_timeline.py tests/test_music_video_lyrics.py -q --disable-warnings --maxfail=1` falló durante importación por `ModuleNotFoundError: No module named 'edge_tts'`. No implica que los tests funcionales estén fallando; todavía no pudieron arrancar.
 - No se comprobó CI de GitHub para esta rama, ni generación real, ni despliegue. Mantener ambas PR draft.
 - Próximo paso verificable: resolver dependencias en entorno con acceso de red (Actions / runner autorizado), ejecutar `npm ci && npm test && npm run build` y suite Pytest; integrar la ruta musical con el worker tras aprobar gates.
+
+## 2026-10-24 — primera integración de music-video con cola
+- Se incorporaron desde PR #1 a la rama de PR #12 `core/remote_queue.py`, `worker.py`, `supabase_schema.sql` y `tests/test_remote_queue.py` sin fusionar PR #1; son componentes existentes, **no probados en producción**.
+- `web/routes/task_creation_routes.py`: para `remote_queue.enabled()` serializa y sube el estado/archivos por `asyncio.to_thread(remote_queue.enqueue_state, ...)`, devuelve éxito solo tras persistencia; elimina archivos temporales y retorna 503 si falla. Commit `0d138aa6f5b625317322c408bcf83c9a9f4df415`.
+- `tests/test_music_video_remote_queue.py`: regresión de encolado real frente a ejecución local y limpieza/fallo de almacenamiento. Commit `d02779171b72387c130fd44c3f51c7bedfb84d23`.
+- **Verificación pendiente:** CI/pytest no ejecutados para estos cambios; no se ha probado Supabase real, worker, autenticación por usuario ni MP4, y faltan conectar endpoints de estado/artefactos a la cola. No se debe fusionar ni desplegar.
